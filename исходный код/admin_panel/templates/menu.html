@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>☕ Меню</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='menu.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<!-- Навигация -->
+    <div class="header">
+        <nav class="nav-center">
+            <a href="{{ url_for('orders.orders') }}">
+                <i class="fas fa-shopping-cart"></i> Заказы
+            </a>
+            <a href="{{ url_for('menu.menu') }}" class="active">
+                <i class="fas fa-coffee"></i> Меню
+            </a>
+            <a href="{{ url_for('dashboard.dashboard') }}">
+                <i class="fas fa-chart-line"></i> Аналитика
+            </a>
+            <a href="{{ url_for('broadcast.broadcast') }}" >
+                <i class="fas fa-bullhorn"></i> Рассылки
+            </a>
+        </nav>
+        <nav class="nav-right">
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> Выход
+            </a>
+        </nav>
+    </div>
+
+<!-- Основной контент -->
+<main class="menu-page">
+    <header class="page-header">
+        <h1><i class="fas fa-coffee"></i> Управление меню</h1>
+        <p class="page-subtitle">Создавайте и редактируйте категории и товары</p>
+    </header>
+
+    <!-- Панель управления -->
+    <div class="control-panel">
+        <div class="control-card">
+            <h3><i class="fas fa-plus-circle"></i> Новая категория</h3>
+            <div class="input-group">
+                <input type="text" id="new-category-name" placeholder="Введите название категории">
+                <button id="add-category-btn" class="btn-primary">
+                    <i class="fas fa-plus"></i> Добавить
+                </button>
+            </div>
+            <small class="hint">Категория появится в списке ниже</small>
+        </div>
+
+        <div class="stats-card">
+            <h3><i class="fas fa-chart-pie"></i> Статистика</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-value" id="total-categories">0</span>
+                    <span class="stat-label">Категорий</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="total-items">0</span>
+                    <span class="stat-label">Товаров</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="avg-price">0 ₽</span>
+                    <span class="stat-label">Средняя цена</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Категории меню -->
+    <div class="categories-container">
+        {% for category, items in categories.items() %}
+        <div class="category-card" data-category="{{ category }}">
+            <div class="category-header">
+                <div class="category-info">
+                    <h3 class="category-name">
+                        <i class="fas fa-folder"></i> {{ category }}
+                        <span class="badge">{{ items|length }}</span>
+                    </h3>
+                    <div class="category-actions">
+                        <button class="btn-icon rename-category" title="Переименовать">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon add-item" title="Добавить товар">
+                            <i class="fas fa-plus-square"></i>
+                        </button>
+                        <button class="btn-icon delete-category" title="Удалить категорию">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        <button class="btn-icon toggle-items" title="Свернуть/развернуть">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-content">
+                {% if items %}
+                <div class="items-table-container">
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th class="col-name">Название</th>
+                                <th class="col-price">Цена</th>
+                                <th class="col-id">ID</th>
+                                <th class="col-actions">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr data-item-id="{{ item.id }}" class="item-row">
+                                <td class="item-name">
+                                    <div class="editable-cell" contenteditable="true" data-field="name">
+                                        {{ item.name }}
+                                    </div>
+                                </td>
+                                <td class="item-price">
+                                    <div class="editable-cell" contenteditable="true" data-field="price">
+                                        {{ item.price }}
+                                    </div>
+                                    <span class="currency">₽</span>
+                                </td>
+                                <td class="item-id">
+                                    <code>{{ item.id }}</code>
+                                </td>
+                                <td class="item-actions">
+                                    <button class="btn-icon save-item" title="Сохранить изменения">
+                                        <i class="fas fa-save"></i>
+                                    </button>
+                                    <button class="btn-icon delete-item" title="Удалить товар">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-box-open"></i>
+                    <p>В этой категории пока нет товаров</p>
+                    <button class="btn-outline add-item-first">
+                        <i class="fas fa-plus"></i> Добавить первый товар
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-categories">
+            <div class="empty-state-large">
+                <i class="fas fa-clipboard-list"></i>
+                <h3>Меню пустое</h3>
+                <p>Создайте первую категорию, чтобы начать добавлять товары</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</main>
+
+<!-- Модальные окна -->
+<div class="modal-overlay" id="rename-modal" style="display: none;">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> Переименовать категорию</h3>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="text" id="rename-input" placeholder="Новое название категории">
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary cancel-rename">Отмена</button>
+            <button class="btn-primary confirm-rename">Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Уведомления -->
+<div class="notification-container" id="notification-container"></div>
+
+<script>
+// ===== ПЕРЕМЕННЫЕ И СОСТОЯНИЯ =====
+let currentCategoryToRename = null;
+let isProcessing = false;
+
+// ===== ОСНОВНАЯ ИНИЦИАЛИЗАЦИЯ =====
+document.addEventListener("DOMContentLoaded", () => {
+    updateStats();
+    setupEventListeners();
+    initializeEditableCells();
+});
+
+// ===== СТАТИСТИКА =====
+function updateStats() {
+    const categories = document.querySelectorAll('.category-card');
+    const totalItems = document.querySelectorAll('.item-row').length;
+
+    document.getElementById('total-categories').textContent = categories.length;
+    document.getElementById('total-items').textContent = totalItems;
+
+    // Расчет средней цены
+    let totalPrice = 0;
+    let priceCount = 0;
+    document.querySelectorAll('.item-price .editable-cell').forEach(cell => {
+        const price = parseFloat(cell.textContent);
+        if (!isNaN(price)) {
+            totalPrice += price;
+            priceCount++;
+        }
+    });
+
+    const avgPrice = priceCount > 0 ? (totalPrice / priceCount).toFixed(2) : 0;
+    document.getElementById('avg-price').textContent = avgPrice + ' ₽';
+}
+
+// ===== УПРАВЛЕНИЕ КАТЕГОРИЯМИ =====
+
+// Добавление категории
+document.getElementById("add-category-btn").addEventListener("click", async () => {
+    if (isProcessing) return;
+
+    const input = document.getElementById("new-category-name");
+    const name = input.value.trim();
+
+    if (!name) {
+        showNotification('Введите название категории', 'warning');
+        input.focus();
+        return;
+    }
+
+    isProcessing = true;
+    try {
+        const response = await fetch("/menu/add_category", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({name})
+        });
+
+        const result = await response.json();
+
+        if (result.status === "ok") {
+            showNotification(`Категория "${name}" создана`, 'success');
+            input.value = '';
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showNotification(result.msg || 'Ошибка при создании категории', 'error');
+        }
+    } catch (error) {
+        showNotification('Ошибка соединения', 'error');
+        console.error(error);
+    } finally {
+        isProcessing = false;
+    }
+});
+
+// Переименование категории
+document.querySelectorAll(".rename-category").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const categoryCard = btn.closest('.category-card');
+        const oldName = categoryCard.querySelector('.category-name').textContent.replace(/[^a-zA-Zа-яА-Я0-9\s]/g, '').trim();
+
+        currentCategoryToRename = {
+            element: categoryCard,
+            oldName: oldName
+        };
+
+        const modal = document.getElementById('rename-modal');
+        const input = document.getElementById('rename-input');
+        input.value = oldName;
+        modal.style.display = 'flex';
+        input.focus();
+        input.select();
+    });
+});
+
+// Удаление категории
+document.querySelectorAll(".delete-category").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const categoryCard = btn.closest('.category-card');
+        const name = categoryCard.querySelector('.category-name').textContent.replace(/[^a-zA-Zа-яА-Я0-9\s]/g, '').trim();
+        const itemCount = categoryCard.querySelectorAll('.item-row').length;
+
+        const message = itemCount > 0
+            ? `Удалить категорию "${name}" вместе с ${itemCount} товаром(ами)?`
+            : `Удалить категорию "${name}"?`;
+
+        if (!confirm(message)) return;
+
+        fetch("/menu/delete_category", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({name})
+        }).then(response => response.json())
+          .then(() => {
+              showNotification(`Категория "${name}" удалена`, 'success');
+              categoryCard.style.opacity = '0.5';
+              setTimeout(() => location.reload(), 500);
+          });
+    });
+});
+
+// Свертывание/развертывание категорий
+document.querySelectorAll(".toggle-items").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const categoryCard = btn.closest('.category-card');
+        const content = categoryCard.querySelector('.category-content');
+        const icon = btn.querySelector('i');
+
+        if (content.style.display === 'none' || !content.style.display) {
+            content.style.display = 'block';
+            icon.className = 'fas fa-chevron-up';
+            categoryCard.classList.add('expanded');
+        } else {
+            content.style.display = 'none';
+            icon.className = 'fas fa-chevron-down';
+            categoryCard.classList.remove('expanded');
+        }
+    });
+});
+
+// ===== УПРАВЛЕНИЕ ТОВАРАМИ =====
+
+// Добавление товара
+document.querySelectorAll(".add-item").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const categoryCard = btn.closest('.category-card');
+        const category = categoryCard.dataset.category;
+
+        try {
+            const response = await fetch("/menu/add_item", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({category})
+            });
+
+            const result = await response.json();
+
+            if (result.status === "ok") {
+                showNotification('Новый товар добавлен', 'success');
+                // Открываем категорию для редактирования
+                categoryCard.querySelector('.category-content').style.display = 'block';
+                categoryCard.querySelector('.toggle-items i').className = 'fas fa-chevron-up';
+                categoryCard.classList.add('expanded');
+
+                // Перезагружаем страницу через секунду
+                setTimeout(() => location.reload(), 1000);
+            }
+        } catch (error) {
+            showNotification('Ошибка при добавлении товара', 'error');
+        }
+    });
+});
+
+// Сохранение изменений товара
+document.querySelectorAll(".save-item").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const row = btn.closest('.item-row');
+        const id = row.dataset.itemId;
+
+        const name = row.querySelector('[data-field="name"]').textContent.trim();
+        const price = row.querySelector('[data-field="price"]').textContent.trim();
+
+        if (!name) {
+            showNotification('Введите название товара', 'warning');
+            row.querySelector('[data-field="name"]').focus();
+            return;
+        }
+
+        if (!price || isNaN(parseFloat(price))) {
+            showNotification('Введите корректную цену', 'warning');
+            row.querySelector('[data-field="price"]').focus();
+            return;
+        }
+
+        try {
+            const response = await fetch("/menu/edit_item", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({id, name, price: parseFloat(price)})
+            });
+
+            const result = await response.json();
+
+            if (result.status === "ok") {
+                showNotification('Изменения сохранены', 'success');
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                btn.classList.add('saved');
+
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-save"></i>';
+                    btn.classList.remove('saved');
+                }, 2000);
+
+                updateStats();
+            }
+        } catch (error) {
+            showNotification('Ошибка сохранения', 'error');
+        }
+    });
+});
+
+// Удаление товара
+document.querySelectorAll(".delete-item").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const row = btn.closest('.item-row');
+        const id = row.dataset.itemId;
+        const name = row.querySelector('[data-field="name"]').textContent.trim();
+
+        if (!confirm(`Удалить товар "${name}"?`)) return;
+
+        fetch("/menu/delete_item", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({id})
+        }).then(response => response.json())
+          .then(() => {
+              showNotification('Товар удален', 'success');
+              row.style.opacity = '0.5';
+              setTimeout(() => {
+                  row.style.transform = 'translateX(-100%)';
+                  setTimeout(() => {
+                      row.remove();
+                      updateStats();
+                  }, 300);
+              }, 300);
+          });
+    });
+});
+
+// ===== МОДАЛЬНЫЕ ОКНА =====
+
+// Модальное окно переименования
+const renameModal = document.getElementById('rename-modal');
+const renameInput = document.getElementById('rename-input');
+const cancelRenameBtn = document.querySelector('.cancel-rename');
+const confirmRenameBtn = document.querySelector('.confirm-rename');
+const closeModalBtn = document.querySelector('.close-modal');
+
+closeModalBtn.addEventListener('click', () => {
+    renameModal.style.display = 'none';
+});
+
+cancelRenameBtn.addEventListener('click', () => {
+    renameModal.style.display = 'none';
+});
+
+confirmRenameBtn.addEventListener('click', async () => {
+    const newName = renameInput.value.trim();
+
+    if (!newName) {
+        showNotification('Введите новое название', 'warning');
+        return;
+    }
+
+    if (currentCategoryToRename) {
+        try {
+            const response = await fetch("/menu/rename_category", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    old: currentCategoryToRename.oldName,
+                    new: newName
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.status === "ok") {
+                showNotification(`Категория переименована в "${newName}"`, 'success');
+                renameModal.style.display = 'none';
+                setTimeout(() => location.reload(), 800);
+            }
+        } catch (error) {
+            showNotification('Ошибка переименования', 'error');
+        }
+    }
+});
+
+// Закрытие модального окна по клику вне его
+renameModal.addEventListener('click', (e) => {
+    if (e.target === renameModal) {
+        renameModal.style.display = 'none';
+    }
+});
+
+// ===== УТИЛИТЫ =====
+
+// Показать уведомление
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notification-container');
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+        <span>${message}</span>
+        <button class="close-notification">&times;</button>
+    `;
+
+    container.appendChild(notification);
+
+    // Анимация появления
+    setTimeout(() => notification.classList.add('show'), 10);
+
+    // Автоматическое закрытие
+    const autoClose = setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 4000);
+
+    // Закрытие по клику
+    notification.querySelector('.close-notification').addEventListener('click', () => {
+        clearTimeout(autoClose);
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    });
+}
+
+// Инициализация редактируемых ячеек
+function initializeEditableCells() {
+    document.querySelectorAll('.editable-cell').forEach(cell => {
+        cell.addEventListener('focus', function() {
+            this.dataset.original = this.textContent;
+        });
+
+        cell.addEventListener('blur', function() {
+            if (this.textContent !== this.dataset.original) {
+                const row = this.closest('.item-row');
+                const saveBtn = row.querySelector('.save-item');
+                saveBtn.classList.add('changed');
+                saveBtn.innerHTML = '<i class="fas fa-exclamation-circle"></i>';
+            }
+        });
+
+        // Для поля цены - валидация
+        if (cell.dataset.field === 'price') {
+            cell.addEventListener('input', function() {
+                this.textContent = this.textContent.replace(/[^0-9.]/g, '');
+
+                // Проверка на несколько точек
+                const dots = this.textContent.split('.').length - 1;
+                if (dots > 1) {
+                    this.textContent = this.textContent.substring(0, this.textContent.lastIndexOf('.'));
+                }
+
+                // Ограничение десятичных знаков
+                const parts = this.textContent.split('.');
+                if (parts.length > 1 && parts[1].length > 2) {
+                    this.textContent = parts[0] + '.' + parts[1].substring(0, 2);
+                }
+            });
+        }
+
+        // Для поля названия - ограничение длины
+        if (cell.dataset.field === 'name') {
+            cell.addEventListener('input', function() {
+                if (this.textContent.length > 50) {
+                    this.textContent = this.textContent.substring(0, 50);
+                }
+            });
+        }
+    });
+}
+
+// Настройка всех обработчиков событий
+function setupEventListeners() {
+    // Добавление товара из пустой категории
+    document.querySelectorAll('.add-item-first').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const categoryCard = btn.closest('.category-card');
+            const addBtn = categoryCard.querySelector('.add-item');
+            addBtn.click();
+        });
+    });
+
+    // Enter для добавления категории
+    document.getElementById('new-category-name')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('add-category-btn').click();
+        }
+    });
+
+    // Enter в модальном окне переименования
+    renameInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            confirmRenameBtn.click();
+        }
+    });
+}
+
+// ===== УЛУЧШЕНИЯ UX =====
+// Автоматическое сохранение при потере фокуса (опционально)
+document.addEventListener('focusout', (e) => {
+    if (e.target.classList.contains('editable-cell') && e.target.textContent !== e.target.dataset.original) {
+        const saveBtn = e.target.closest('.item-row')?.querySelector('.save-item');
+        if (saveBtn && !saveBtn.classList.contains('changed')) {
+            // Автосохранение можно включить здесь, если нужно
+            // saveBtn.click();
+        }
+    }
+});
+
+// Drag & Drop для изменения порядка (базовый вариант)
+let draggedRow = null;
+document.addEventListener('dragstart', (e) => {
+    if (e.target.closest('.item-row')) {
+        draggedRow = e.target.closest('.item-row');
+        draggedRow.style.opacity = '0.4';
+    }
+});
+
+document.addEventListener('dragend', () => {
+    if (draggedRow) {
+        draggedRow.style.opacity = '';
+        draggedRow = null;
+    }
+});
+
+// Быстрое редактирование по двойному клику
+document.addEventListener('dblclick', (e) => {
+    if (e.target.classList.contains('editable-cell')) {
+        e.target.focus();
+        // Выделяем текст
+        const range = document.createRange();
+        range.selectNodeContents(e.target);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+});
+</script>
+
+</body>
+</html>

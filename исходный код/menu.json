@@ -1,0 +1,9 @@
+{
+  "categories": ["Кофе", "Выпечка", "Десерты"],
+  "items": {
+    "espresso": {"name": "Эспрессо", "price": 150, "category": "Кофе"},
+    "latte": {"name": "Латте", "price": 180, "category": "Кофе"},
+    "croissant": {"name": "Круассан", "price": 120, "category": "Выпечка"},
+    "cheesecake": {"name": "Чизкейк", "price": 200, "category": "Десерты"}
+  }
+}

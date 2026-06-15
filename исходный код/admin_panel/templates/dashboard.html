@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Аналитика</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+</head>
+<body>
+
+<!-- Навигация -->
+    <div class="header">
+        <nav class="nav-center">
+            <a href="{{ url_for('orders.orders') }}">
+                <i class="fas fa-shopping-cart"></i> Заказы
+            </a>
+            <a href="{{ url_for('menu.menu') }}">
+                <i class="fas fa-coffee"></i> Меню
+            </a>
+            <a href="{{ url_for('dashboard.dashboard') }}" class="active">
+                <i class="fas fa-chart-line"></i> Аналитика
+            </a>
+            <a href="{{ url_for('broadcast.broadcast') }}">
+                <i class="fas fa-bullhorn"></i> Рассылки
+            </a>
+        </nav>
+        <nav class="nav-right">
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> Выход
+            </a>
+        </nav>
+    </div>
+
+<!-- Основной контент -->
+<main class="analytics-page">
+    <!-- Шапка -->
+    <header class="analytics-header">
+        <div class="header-content">
+            <h1><i class="fas fa-chart-pie"></i> Аналитика продаж</h1>
+            <p class="subtitle">Детальная статистика и метрики эффективности</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn-primary" onclick="exportData()">
+                <i class="fas fa-file-export"></i> Экспорт
+            </button>
+        </div>
+    </header>
+
+    <!-- Панель управления ботом -->
+    <section class="bot-management">
+        <div class="bot-header">
+            <h2><i class="fas fa-robot"></i> Управление Telegram-ботом</h2>
+            <div class="status-indicator" id="status-indicator">
+                <div class="status-dot"></div>
+                <span>Проверка...</span>
+            </div>
+        </div>
+
+        <div class="bot-content">
+            <div class="bot-status-card">
+                <div class="status-display" id="bot-status-display">
+                    <div class="status-icon">
+                        <i class="fas fa-power-off"></i>
+                    </div>
+                    <div class="status-info">
+                        <h3 id="status-text">Загрузка статуса...</h3>
+                        <p id="status-details">Подключаемся к серверу</p>
+                    </div>
+                </div>
+
+                <div class="bot-details" id="bot-details">
+                    <div class="detail-item">
+                        <i class="fas fa-key"></i>
+                        <div>
+                            <small>Токен</small>
+                            <p id="token-display">••••••••••</p>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-clock"></i>
+                        <div>
+                            <small>Запущен</small>
+                            <p id="started-at">—</p>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-history"></i>
+                        <div>
+                            <small>Время работы</small>
+                            <p id="uptime">—</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bot-actions-panel">
+                <button class="btn-success" id="connect-bot-btn" onclick="openBotModal()">
+                    <i class="fas fa-play"></i> Запустить бота
+                </button>
+                <button class="btn-danger" id="stop-bot-btn" onclick="stopBot()" disabled>
+                    <i class="fas fa-stop"></i> Остановить бота
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Фильтры -->
+    <section class="filters-section">
+        <div class="filters-header">
+            <h3><i class="fas fa-filter"></i> Фильтры периода</h3>
+            <div class="period-presets">
+                <button class="preset-btn active" onclick="setPeriod('today')">Сегодня</button>
+                <button class="preset-btn" onclick="setPeriod('week')">Неделя</button>
+                <button class="preset-btn" onclick="setPeriod('month')">Месяц</button>
+                <button class="preset-btn" onclick="setPeriod('quarter')">Квартал</button>
+                <button class="preset-btn" onclick="setPeriod('year')">Год</button>
+            </div>
+        </div>
+
+        <div class="date-range-picker">
+            <div class="date-input-group">
+                <label><i class="fas fa-calendar-alt"></i> Начало</label>
+                <input type="date" id="start_date" value="{{ default_start }}" class="date-input">
+            </div>
+            <div class="date-input-group">
+                <label><i class="fas fa-calendar-alt"></i> Конец</label>
+                <input type="date" id="end_date" value="{{ default_end }}" class="date-input">
+            </div>
+            <div class="filter-actions">
+                <button class="btn-primary" onclick="applyFilters()">
+                    <i class="fas fa-check"></i> Применить
+                </button>
+                <button class="btn-secondary" onclick="resetFilters()">
+                    <i class="fas fa-redo"></i> Сбросить
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Основные метрики -->
+    <section class="metrics-grid">
+        <div class="metric-card revenue">
+            <div class="metric-icon">
+                <i class="fas fa-wallet"></i>
+            </div>
+            <div class="metric-content">
+                <h3>Общая выручка</h3>
+                <div class="metric-value" id="revenue">0 ₽</div>
+                <div class="metric-change" id="revenue-change">—</div>
+            </div>
+        </div>
+
+        <div class="metric-card orders">
+            <div class="metric-icon">
+                <i class="fas fa-shopping-bag"></i>
+            </div>
+            <div class="metric-content">
+                <h3>Заказы</h3>
+                <div class="metric-value" id="total-orders">0</div>
+                <div class="metric-change" id="orders-change">—</div>
+            </div>
+        </div>
+
+        <div class="metric-card average">
+            <div class="metric-icon">
+                <i class="fas fa-chart-bar"></i>
+            </div>
+            <div class="metric-content">
+                <h3>Средний чек</h3>
+                <div class="metric-value" id="avg-order">0 ₽</div>
+                <div class="metric-change" id="avg-change">—</div>
+            </div>
+        </div>
+
+        <div class="metric-card items">
+            <div class="metric-icon">
+                <i class="fas fa-box"></i>
+            </div>
+            <div class="metric-content">
+                <h3>Продано товаров</h3>
+                <div class="metric-value" id="items-sold">0</div>
+                <div class="metric-change" id="items-change">—</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Графики -->
+    <section class="charts-section">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-chart-line"></i> Динамика выручки</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" onclick="toggleChartType('revenue')">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-chart-pie"></i> Продажи по категориям</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" onclick="toggleChartType('categories')">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card full-width">
+            <div class="chart-header">
+                <h3><i class="fas fa-fire"></i> Топ-10 товаров</h3>
+                <div class="chart-actions">
+                    <select class="chart-select" id="top-products-metric" onchange="updateTopProductsChart()">
+                        <option value="revenue">По выручке</option>
+                        <option value="quantity">По количеству</option>
+                    </select>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="topProductsChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-calendar-week"></i> Активность по дням</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" onclick="toggleChartType('weekday')">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="weekdayChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-clock"></i> Активность по часам</h3>
+                <div class="chart-actions">
+                    <button class="chart-action-btn" onclick="toggleChartType('hourly')">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="hourlyChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <!-- Таблица товаров -->
+    <section class="products-table-section">
+        <div class="section-header">
+            <h3><i class="fas fa-table"></i> Детализация по товарам</h3>
+            <div class="table-actions">
+                <input type="text" id="product-search" placeholder="Поиск товара..." class="search-input">
+                <select id="category-filter" class="filter-select">
+                    <option value="">Все категории</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table id="productsTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)">
+                            <span>Товар</span>
+                            <i class="fas fa-sort"></i>
+                        </th>
+                        <th onclick="sortTable(1)">
+                            <span>Категория</span>
+                            <i class="fas fa-sort"></i>
+                        </th>
+                        <th onclick="sortTable(2)" class="text-right">
+                            <span>Продано</span>
+                            <i class="fas fa-sort"></i>
+                        </th>
+                        <th onclick="sortTable(3)" class="text-right">
+                            <span>Выручка</span>
+                            <i class="fas fa-sort"></i>
+                        </th>
+                        <th onclick="sortTable(4)" class="text-right">
+                            <span>Доля</span>
+                            <i class="fas fa-sort"></i>
+                        </th>
+                        <th onclick="sortTable(5)" class="text-right">
+                            <span>Ср. цена</span>
+                            <i class="fas fa-sort"></i>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="productsBody">
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            <i class="fas fa-chart-bar"></i>
+                            <p>Выберите период для загрузки данных</p>
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2"><strong>Итого</strong></td>
+                        <td class="text-right" id="total-quantity">0</td>
+                        <td class="text-right" id="total-revenue">0 ₽</td>
+                        <td class="text-right">100%</td>
+                        <td class="text-right" id="total-avg-price">0 ₽</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </section>
+
+    <!-- Быстрые инсайты -->
+    <section class="insights-section">
+        <h3><i class="fas fa-lightbulb"></i> Инсайты</h3>
+        <div class="insights-grid" id="insights-container">
+            <!-- Инсайты будут генерироваться через JS -->
+        </div>
+    </section>
+</main>
+
+<!-- Модальное окно подключения бота -->
+<div class="modal-overlay" id="bot-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fas fa-robot"></i> Подключение Telegram-бота</h3>
+            <button class="close-modal" onclick="closeBotModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="bot-token-input">
+                    <i class="fas fa-key"></i> Токен бота
+                </label>
+                <input type="text"
+                       id="bot-token-input"
+                       placeholder="Введите BOT_TOKEN"
+                       class="token-input">
+                <small class="help-text">
+                    <i class="fas fa-info-circle"></i> Токен можно получить у @BotFather в Telegram
+                </small>
+            </div>
+
+            <div class="token-info">
+                <h4><i class="fas fa-shield-alt"></i> Безопасность токена</h4>
+                <ul>
+                    <li><i class="fas fa-check-circle"></i> Токен хранится только на вашем сервере</li>
+                    <li><i class="fas fa-check-circle"></i> Не передается третьим лицам</li>
+                    <li><i class="fas fa-check-circle"></i> Используется только для работы бота</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn-secondary" onclick="closeBotModal()">
+                <i class="fas fa-times"></i> Отмена
+            </button>
+            <button class="btn-primary" onclick="connectBot()">
+                <i class="fas fa-plug"></i> Подключить
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Уведомления -->
+<div class="notification-container" id="notification-container"></div>
+
+<script>
+// ===== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =====
+let revenueChart, categoryChart, topProductsChart, weekdayChart, hourlyChart;
+let botStatusInterval;
+let currentData = null;
+let chartTypes = {
+    revenue: 'line',
+    categories: 'doughnut',
+    weekday: 'bar',
+    hourly: 'line'
+};
+
+// ===== ФУНКЦИИ ДЛЯ АНАЛИТИКИ =====
+
+// Установка периода
+function setPeriod(period) {
+    const end = new Date();
+    const start = new Date();
+
+    switch(period) {
+        case 'today':
+            start.setHours(0, 0, 0, 0);
+            break;
+        case 'week':
+            start.setDate(start.getDate() - 7);
+            break;
+        case 'month':
+            start.setMonth(start.getMonth() - 1);
+            break;
+        case 'quarter':
+            start.setMonth(start.getMonth() - 3);
+            break;
+        case 'year':
+            start.setFullYear(start.getFullYear() - 1);
+            break;
+    }
+
+    document.getElementById('start_date').value = start.toISOString().split('T')[0];
+    document.getElementById('end_date').value = end.toISOString().split('T')[0];
+
+    // Обновляем активную кнопку
+    document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+
+    applyFilters();
+}
+
+// Применение фильтров
+async function applyFilters() {
+    const startDate = document.getElementById('start_date').value;
+    const endDate = document.getElementById('end_date').value;
+
+    if (!startDate || !endDate) {
+        showNotification('Пожалуйста, выберите даты', 'warning');
+        return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+        showNotification('Дата начала не может быть позже даты окончания', 'error');
+        return;
+    }
+
+    try {
+        // Показываем индикатор загрузки
+        showLoading(true);
+
+        const response = await fetch('/dashboard/analytics-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ start_date: startDate, end_date: endDate })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ошибка сервера: ${response.status}`);
+        }
+
+        const data = await response.json();
+        currentData = data;
+
+        updateMetrics(data.metrics);
+        updateCharts(data.charts);
+        updateProductsTable(data.products);
+        updateInsights(data);
+
+        showNotification('Данные успешно загружены', 'success');
+
+    } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+        showNotification('Ошибка загрузки данных: ' + error.message, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Показать/скрыть загрузку
+function showLoading(show) {
+    const metrics = document.querySelectorAll('.metric-value');
+    if (show) {
+        metrics.forEach(m => m.innerHTML = '<i class="fas fa-spinner fa-spin"></i>');
+    }
+}
+
+// Сброс фильтров
+function resetFilters() {
+    document.getElementById('start_date').value = '{{ default_start }}';
+    document.getElementById('end_date').value = '{{ default_end }}';
+    document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector('.preset-btn:nth-child(3)').classList.add('active'); // Месяц
+    applyFilters();
+}
+
+// Обновление метрик
+function updateMetrics(metrics) {
+    document.getElementById('revenue').textContent = formatCurrency(metrics.revenue);
+    document.getElementById('total-orders').textContent = metrics.total_orders;
+    document.getElementById('avg-order').textContent = formatCurrency(metrics.avg_order);
+    document.getElementById('items-sold').textContent = metrics.items_sold;
+}
+
+// Обновление графиков
+function updateCharts(charts) {
+    // Динамика выручки
+    const revenueCtx = document.getElementById('revenueChart');
+    if (revenueCtx) {
+        if (revenueChart) revenueChart.destroy();
+
+        revenueChart = new Chart(revenueCtx.getContext('2d'), {
+            type: chartTypes.revenue,
+            data: {
+                labels: charts.revenue.dates || [],
+                datasets: [{
+                    label: 'Выручка',
+                    data: charts.revenue.values || [],
+                    borderColor: '#4F46E5',
+                    backgroundColor: chartTypes.revenue === 'line' ? 'rgba(79, 70, 229, 0.1)' : 'rgba(79, 70, 229, 0.6)',
+                    tension: 0.3,
+                    fill: chartTypes.revenue === 'line',
+                    borderWidth: 3
+                }]
+            },
+            options: getChartOptions('Выручка (₽)', chartTypes.revenue)
+        });
+    }
+
+    // Продажи по категориям
+    const categoryCtx = document.getElementById('categoryChart');
+    if (categoryCtx) {
+        if (categoryChart) categoryChart.destroy();
+
+        const colors = generateColors(charts.categories.names.length);
+
+        categoryChart = new Chart(categoryCtx.getContext('2d'), {
+            type: chartTypes.categories,
+            data: {
+                labels: charts.categories.names || [],
+                datasets: [{
+                    data: charts.categories.values || [],
+                    backgroundColor: colors,
+                    borderWidth: 1
+                }]
+            },
+            options: getChartOptions('Выручка (₽)', chartTypes.categories)
+        });
+    }
+
+    // Топ товаров
+    updateTopProductsChart();
+
+    // По дням недели
+    const weekdayCtx = document.getElementById('weekdayChart');
+    if (weekdayCtx) {
+        if (weekdayChart) weekdayChart.destroy();
+
+        weekdayChart = new Chart(weekdayCtx.getContext('2d'), {
+            type: chartTypes.weekday,
+            data: {
+                labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+                datasets: [{
+                    label: 'Заказы',
+                    data: charts.weekday || [],
+                    backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                    borderColor: 'rgb(99, 102, 241)',
+                    borderWidth: 2
+                }]
+            },
+            options: getChartOptions('Количество заказов', chartTypes.weekday)
+        });
+    }
+
+    // По часам
+    const hourlyCtx = document.getElementById('hourlyChart');
+    if (hourlyCtx) {
+        if (hourlyChart) hourlyChart.destroy();
+
+        hourlyChart = new Chart(hourlyCtx.getContext('2d'), {
+            type: chartTypes.hourly,
+            data: {
+                labels: Array.from({length: 24}, (_, i) => i + ':00'),
+                datasets: [{
+                    label: 'Выручка',
+                    data: charts.hourly || [],
+                    borderColor: '#F59E0B',
+                    backgroundColor: chartTypes.hourly === 'line' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.6)',
+                    tension: 0.3,
+                    fill: chartTypes.hourly === 'line',
+                    borderWidth: 3
+                }]
+            },
+            options: getChartOptions('Выручка (₽)', chartTypes.hourly)
+        });
+    }
+}
+
+// Обновление графика топ товаров
+function updateTopProductsChart() {
+    if (!currentData) return;
+
+    const topProductsCtx = document.getElementById('topProductsChart');
+    const metric = document.getElementById('top-products-metric').value;
+
+    if (topProductsCtx) {
+        if (topProductsChart) topProductsChart.destroy();
+
+        const labels = currentData.charts.top_products.names || [];
+        const revenueData = currentData.charts.top_products.revenue || [];
+        const quantityData = currentData.charts.top_products.quantity || [];
+
+        topProductsChart = new Chart(topProductsCtx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: metric === 'revenue' ? 'Выручка' : 'Количество',
+                    data: metric === 'revenue' ? revenueData : quantityData,
+                    backgroundColor: metric === 'revenue' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(99, 102, 241, 0.6)',
+                    borderColor: metric === 'revenue' ? 'rgb(16, 185, 129)' : 'rgb(99, 102, 241)',
+                    borderWidth: 2,
+                    borderRadius: 6
+                }]
+            },
+            options: getChartOptions(metric === 'revenue' ? 'Выручка (₽)' : 'Количество', 'bar')
+        });
+    }
+}
+
+// Переключение типа графика
+function toggleChartType(chartName) {
+    if (chartTypes[chartName] === 'line') {
+        chartTypes[chartName] = 'bar';
+    } else if (chartTypes[chartName] === 'bar') {
+        chartTypes[chartName] = 'doughnut';
+    } else {
+        chartTypes[chartName] = 'line';
+    }
+
+    if (currentData) {
+        updateCharts(currentData.charts);
+    }
+}
+
+// Настройки графиков
+function getChartOptions(title, type) {
+    const baseOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: type === 'doughnut' ? 'right' : 'top',
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        if (title.includes('₽')) {
+                            return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                        }
+                        return `${context.dataset.label}: ${context.raw}`;
+                    }
+                }
+            }
+        }
+    };
+
+    if (type !== 'doughnut') {
+        baseOptions.scales = {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value) {
+                        if (title.includes('₽')) {
+                            return formatCurrency(value);
+                        }
+                        return value;
+                    }
+                },
+                title: {
+                    display: true,
+                    text: title
+                }
+            }
+        };
+    }
+
+    return baseOptions;
+}
+
+// Генерация цветов
+function generateColors(count) {
+    const colors = [
+        '#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+        '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#14B8A6',
+        '#3B82F6', '#22C55E', '#EAB308', '#DC2626', '#A855F7'
+    ];
+
+    return colors.slice(0, count);
+}
+
+// Обновление таблицы товаров
+function updateProductsTable(products) {
+    const tbody = document.getElementById('productsBody');
+    const categoryFilter = document.getElementById('category-filter');
+
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!products || products.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="empty-state">
+                    <i class="fas fa-chart-bar"></i>
+                    <p>Нет данных за выбранный период</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    // Обновляем фильтр категорий
+    updateCategoryFilter(products);
+
+    let totalQuantity = 0;
+    let totalRevenue = 0;
+
+    // Фильтрация по категории
+    const selectedCategory = categoryFilter.value;
+    const filteredProducts = selectedCategory ?
+        products.filter(p => p.category === selectedCategory) :
+        products;
+
+    // Фильтрация по поиску
+    const searchTerm = document.getElementById('product-search').value.toLowerCase();
+    const searchedProducts = searchTerm ?
+        filteredProducts.filter(p => p.name.toLowerCase().includes(searchTerm)) :
+        filteredProducts;
+
+    searchedProducts.forEach(product => {
+        totalQuantity += product.quantity;
+        totalRevenue += product.revenue;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${product.name || 'Неизвестный товар'}</td>
+            <td><span class="category-badge">${product.category || 'Без категории'}</span></td>
+            <td class="text-right">${product.quantity || 0}</td>
+            <td class="text-right">${formatCurrency(product.revenue || 0)}</td>
+            <td class="text-right">
+                <div class="progress-cell">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${product.revenue_share || 0}%"></div>
+                    </div>
+                    <span>${(product.revenue_share || 0).toFixed(1)}%</span>
+                </div>
+            </td>
+            <td class="text-right">${formatCurrency(product.avg_price || 0)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    // Обновляем итоги
+    document.getElementById('total-quantity').textContent = totalQuantity;
+    document.getElementById('total-revenue').textContent = formatCurrency(totalRevenue);
+    document.getElementById('total-avg-price').textContent = formatCurrency(
+        totalQuantity > 0 ? totalRevenue / totalQuantity : 0
+    );
+}
+
+// Обновление фильтра категорий
+function updateCategoryFilter(products) {
+    const filter = document.getElementById('category-filter');
+    const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
+
+    // Сохраняем текущее значение
+    const currentValue = filter.value;
+
+    // Очищаем и добавляем опции
+    filter.innerHTML = '<option value="">Все категории</option>';
+    categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        filter.appendChild(option);
+    });
+
+    // Восстанавливаем значение
+    if (categories.includes(currentValue)) {
+        filter.value = currentValue;
+    }
+}
+
+// Сортировка таблицы
+function sortTable(columnIndex) {
+    // Реализация сортировки таблицы
+    console.log('Sorting column:', columnIndex);
+}
+
+// Обновление инсайтов
+function updateInsights(data) {
+    const container = document.getElementById('insights-container');
+    if (!container) return;
+
+    const insights = generateInsights(data);
+    container.innerHTML = '';
+
+    insights.forEach(insight => {
+        const insightEl = document.createElement('div');
+        insightEl.className = `insight-card ${insight.type}`;
+        insightEl.innerHTML = `
+            <div class="insight-icon">
+                <i class="${insight.icon}"></i>
+            </div>
+            <div class="insight-content">
+                <h4>${insight.title}</h4>
+                <p>${insight.description}</p>
+            </div>
+        `;
+        container.appendChild(insightEl);
+    });
+}
+
+// Генерация инсайтов
+function generateInsights(data) {
+    const insights = [];
+
+    if (data.metrics.total_orders === 0) {
+        insights.push({
+            type: 'info',
+            icon: 'fas fa-info-circle',
+            title: 'Нет данных',
+            description: 'В выбранный период не было заказов'
+        });
+        return insights;
+    }
+
+    // Самый популярный товар
+    if (data.products.length > 0) {
+        const topProduct = data.products[0];
+        insights.push({
+            type: 'success',
+            icon: 'fas fa-crown',
+            title: 'Хит продаж',
+            description: `${topProduct.name} принес ${topProduct.revenue_share}% выручки`
+        });
+    }
+
+    // Лучший день недели
+    const weekdays = data.charts.weekday;
+    if (weekdays && weekdays.length > 0) {
+        const bestDayIndex = weekdays.indexOf(Math.max(...weekdays));
+        const dayNames = ['Понедельник', 'Вторник', 'Среду', 'Четверг', 'Пятницу', 'Субботу', 'Воскресенье'];
+        insights.push({
+            type: 'info',
+            icon: 'fas fa-calendar-star',
+            title: 'Лучший день',
+            description: `Больше всего заказов в ${dayNames[bestDayIndex].toLowerCase()}`
+        });
+    }
+
+    // Средний чек
+    if (data.metrics.avg_order > 0) {
+        insights.push({
+            type: 'warning',
+            icon: 'fas fa-chart-bar',
+            title: 'Средний чек',
+            description: `Покупатели тратят в среднем ${formatCurrency(data.metrics.avg_order)}`
+        });
+    }
+
+    // Топ категория
+    const categories = data.charts.categories;
+    if (categories.names.length > 0) {
+        const topCategoryIndex = categories.values.indexOf(Math.max(...categories.values));
+        insights.push({
+            type: 'primary',
+            icon: 'fas fa-tags',
+            title: 'Популярная категория',
+            description: `${categories.names[topCategoryIndex]} лидирует по выручке`
+        });
+    }
+
+    return insights;
+}
+
+// Экспорт данных
+function exportData() {
+    if (!currentData) {
+        showNotification('Нет данных для экспорта', 'warning');
+        return;
+    }
+
+    // Создаем CSV с BOM для правильной кодировки
+    const BOM = '\uFEFF'; // Byte Order Mark для UTF-8
+    let csv = BOM + 'Товар,Категория,Продано,Выручка,Доля в выручке %,Средняя цена\n';
+
+    currentData.products.forEach(product => {
+        // Экранируем кавычки в тексте
+        const name = (product.name || '').replace(/"/g, '""');
+        const category = (product.category || '').replace(/"/g, '""');
+
+        csv += `"${name}","${category}",${product.quantity},${product.revenue},${product.revenue_share},${product.avg_price}\n`;
+    });
+
+    // Создаем blob с указанием кодировки
+    const blob = new Blob([csv], {
+        type: 'text/csv;charset=utf-8;'
+    });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    // Формируем имя файла с датой
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.setAttribute('href', url);
+    link.setAttribute('download', `аналитика_${dateStr}.csv`);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Освобождаем память
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+
+    showNotification('Данные экспортированы в CSV', 'success');
+}
+
+// ===== ФУНКЦИИ ДЛЯ УПРАВЛЕНИЯ БОТОМ =====
+
+// Открыть модальное окно бота
+function openBotModal() {
+    document.getElementById('bot-modal').style.display = 'flex';
+}
+
+// Закрыть модальное окно бота
+function closeBotModal() {
+    document.getElementById('bot-modal').style.display = 'none';
+    document.getElementById('bot-token-input').value = '';
+}
+
+// Подключить бота
+async function connectBot() {
+    const tokenInput = document.getElementById('bot-token-input');
+    const token = tokenInput.value.trim();
+
+    if (!token) {
+        showNotification('Введите токен бота', 'warning');
+        tokenInput.focus();
+        return;
+    }
+
+    try {
+        const response = await fetch("/dashboard/connect_bot", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token })
+        });
+
+        const result = await response.json();
+
+        if (result.ok) {
+            showNotification('Бот запускается...', 'success');
+            closeBotModal();
+            updateBotStatus();
+
+            // Частое обновление статуса на 30 секунд
+            clearInterval(botStatusInterval);
+            for (let i = 0; i < 30; i++) {
+                setTimeout(() => updateBotStatus(), i * 1000);
+            }
+            botStatusInterval = setInterval(updateBotStatus, 5000);
+
+        } else {
+            throw new Error(result.error || 'Ошибка подключения');
+        }
+    } catch (error) {
+        showNotification('Ошибка подключения: ' + error.message, 'error');
+    }
+}
+
+// Остановить бота
+async function stopBot() {
+    if (!confirm('Вы уверены, что хотите остановить бота?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch("/dashboard/stop_bot", { method: "POST" });
+        const result = await response.json();
+
+        if (result.ok) {
+            showNotification('Бот остановлен', 'success');
+            updateBotStatus();
+        } else {
+            throw new Error(result.error || 'Ошибка остановки');
+        }
+    } catch (error) {
+        showNotification('Ошибка остановки: ' + error.message, 'error');
+    }
+}
+
+// Обновление статуса бота
+async function updateBotStatus() {
+    try {
+        const res = await fetch("/dashboard/bot_status");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        const status = data.status || 'stopped';
+
+        const statusDisplay = document.getElementById('bot-status-display');
+        const statusText = document.getElementById('status-text');
+        const statusDetails = document.getElementById('status-details');
+        const tokenDisplay = document.getElementById('token-display');
+        const startedAtDisplay = document.getElementById('started-at');
+        const uptimeDisplay = document.getElementById('uptime');
+        const connectBtn = document.getElementById('connect-bot-btn');
+        const stopBtn = document.getElementById('stop-bot-btn');
+        const statusIndicator = document.getElementById('status-indicator');
+
+        // Обновляем статус
+        switch(status) {
+            case "running":
+                statusDisplay.className = "status-display running";
+                statusText.textContent = "Бот работает";
+                statusDetails.textContent = "Статус: Активен";
+                connectBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusIndicator.querySelector('.status-dot').className = 'status-dot running';
+                statusIndicator.querySelector('span').textContent = 'В сети';
+                break;
+
+            case "starting":
+                statusDisplay.className = "status-display starting";
+                statusText.textContent = "Бот запускается";
+                statusDetails.textContent = "Пожалуйста, подождите...";
+                connectBtn.disabled = true;
+                stopBtn.disabled = true;
+                statusIndicator.querySelector('.status-dot').className = 'status-dot starting';
+                statusIndicator.querySelector('span').textContent = 'Запуск';
+                break;
+
+            case "error":
+                statusDisplay.className = "status-display error";
+                statusText.textContent = "Ошибка";
+                statusDetails.textContent = data.error || "Неизвестная ошибка";
+                connectBtn.disabled = false;
+                stopBtn.disabled = true;
+                statusIndicator.querySelector('.status-dot').className = 'status-dot error';
+                statusIndicator.querySelector('span').textContent = 'Ошибка';
+                break;
+
+            default: // stopped
+                statusDisplay.className = "status-display stopped";
+                statusText.textContent = "Бот остановлен";
+                statusDetails.textContent = "Статус: Неактивен";
+                connectBtn.disabled = false;
+                stopBtn.disabled = true;
+                statusIndicator.querySelector('.status-dot').className = 'status-dot stopped';
+                statusIndicator.querySelector('span').textContent = 'Не в сети';
+                break;
+        }
+
+        // Обновляем детали
+        if (data.token_preview) {
+            tokenDisplay.textContent = data.token_preview;
+        }
+
+        if (data.started_at) {
+            const date = new Date(data.started_at);
+            startedAtDisplay.textContent = date.toLocaleString('ru-RU');
+
+            // Рассчитываем время работы
+            const uptime = Math.floor((new Date() - date) / 1000);
+            uptimeDisplay.textContent = formatUptime(uptime);
+        }
+
+    } catch (error) {
+        console.error('Ошибка обновления статуса:', error);
+        document.getElementById('status-text').textContent = "Ошибка связи";
+        document.getElementById('status-details').textContent = "Не удалось подключиться к серверу";
+    }
+}
+
+// Форматирование времени работы
+function formatUptime(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (days > 0) return `${days}д ${hours}ч`;
+    if (hours > 0) return `${hours}ч ${minutes}м`;
+    return `${minutes}м`;
+}
+
+// ===== УТИЛИТЫ =====
+
+// Форматирование валюты
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('ru-RU', {
+        style: 'currency',
+        currency: 'RUB',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(amount);
+}
+
+// Показать уведомление
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notification-container');
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+        <span>${message}</span>
+        <button class="close-notification" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+
+    container.appendChild(notification);
+
+    // Автоудаление через 5 секунд
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// ===== ИНИЦИАЛИЗАЦИЯ =====
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Аналитика инициализирована');
+
+    // Загружаем данные по умолчанию
+    applyFilters();
+
+    // Обновляем статус бота
+    updateBotStatus();
+    botStatusInterval = setInterval(updateBotStatus, 5000);
+
+    // Настройка обработчиков событий
+    setupEventListeners();
+});
+
+// Настройка обработчиков событий
+function setupEventListeners() {
+    // Поиск в таблице товаров
+    document.getElementById('product-search')?.addEventListener('input', () => {
+        if (currentData) {
+            updateProductsTable(currentData.products);
+        }
+    });
+
+    // Фильтр категорий
+    document.getElementById('category-filter')?.addEventListener('change', () => {
+        if (currentData) {
+            updateProductsTable(currentData.products);
+        }
+    });
+
+    // Enter для применения фильтров
+    document.getElementById('start_date')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') applyFilters();
+    });
+
+    document.getElementById('end_date')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') applyFilters();
+    });
+
+    // Enter в модальном окне бота
+    document.getElementById('bot-token-input')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') connectBot();
+    });
+}
+
+// Глобальные функции для отладки
+window.analytics = {
+    applyFilters,
+    updateBotStatus,
+    setPeriod,
+    resetFilters,
+    exportData
+};
+</script>
+
+</body>
+</html>

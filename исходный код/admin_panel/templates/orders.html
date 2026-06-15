@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Заказы</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='orders.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Дополнительные стили для исправления проблем */
+        .order-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 0 25px;
+            opacity: 0;
+        }
+
+        .order-card.expanded .order-content {
+            opacity: 1;
+            max-height: 2000px !important; /* Очень большая высота для гарантии */
+            padding: 25px;
+        }
+
+        .items-table {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 25px;
+        }
+
+        .order-footer {
+            padding-top: 25px;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .btn-success {
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            min-width: 180px;
+        }
+
+        /* Улучшенные стили для тестирования */
+        .test-border {
+            border: 1px solid red;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Навигация -->
+    <div class="header">
+        <nav class="nav-center">
+            <a href="{{ url_for('orders.orders') }}" class="active">
+                <i class="fas fa-shopping-cart"></i> Заказы
+            </a>
+            <a href="{{ url_for('menu.menu') }}">
+                <i class="fas fa-coffee"></i> Меню
+            </a>
+            <a href="{{ url_for('dashboard.dashboard') }}">
+                <i class="fas fa-chart-line"></i> Аналитика
+            </a>
+            <a href="{{ url_for('broadcast.broadcast') }}">
+                <i class="fas fa-bullhorn"></i> Рассылки
+            </a>
+        </nav>
+        <nav class="nav-right">
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> Выход
+            </a>
+        </nav>
+    </div>
+
+<!-- Основной контент -->
+<main class="orders-page">
+    <header class="page-header">
+        <div class="header-content">
+            <h1><i class="fas fa-shopping-bag"></i> Активные заказы</h1>
+            <p class="page-subtitle">Управление текущими заказами и создание новых</p>
+        </div>
+        <div class="header-actions">
+            <button id="open-create-order" class="btn-primary create-order-btn">
+                <i class="fas fa-plus-circle"></i> Новый заказ
+            </button>
+        </div>
+    </header>
+
+    <!-- Статистика заказов -->
+    <div class="orders-stats">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value" id="active-orders-count">0</span>
+                <span class="stat-label">Активных заказов</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-ruble-sign"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value" id="total-revenue">0 ₽</span>
+                <span class="stat-label">Общая сумма</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-box"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value" id="total-items">0</span>
+                <span class="stat-label">Всего товаров</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Список заказов -->
+    <div class="orders-container" id="orders-container">
+        <div class="loading-state" id="loading-orders">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Загрузка заказов...</p>
+        </div>
+    </div>
+
+    <!-- Состояние пустого списка -->
+    <div class="empty-state" id="empty-orders" style="display: none;">
+        <div class="empty-icon">
+            <i class="fas fa-shopping-basket"></i>
+        </div>
+        <h3>Нет активных заказов</h3>
+        <p>Создайте новый заказ, нажав кнопку выше</p>
+        <button class="btn-outline" id="open-create-order-empty">
+            <i class="fas fa-plus"></i> Создать первый заказ
+        </button>
+    </div>
+</main>
+
+<!-- Модальное окно создания заказа -->
+<div class="modal-overlay" id="create-order-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2><i class="fas fa-plus-circle"></i> Создать новый заказ</h2>
+            <button class="close-modal" id="close-create-order">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <form id="create-order-form">
+                <div class="form-section">
+                    <h3><i class="fas fa-user"></i> Информация о клиенте</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="user_name">
+                                <i class="fas fa-user-tag"></i> Имя клиента
+                                <span class="optional">(необязательно)</span>
+                            </label>
+                            <input type="text" id="user_name" name="user_name" placeholder="Введите имя клиента">
+                        </div>
+                        <div class="form-group">
+                            <label for="phone">
+                                <i class="fas fa-phone"></i> Телефон
+                                <span class="optional">(необязательно)</span>
+                            </label>
+                            <input type="tel" id="phone" name="phone" placeholder="+7 (XXX) XXX-XX-XX">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3><i class="fas fa-utensils"></i> Выбор товаров</h3>
+                    <div class="menu-search">
+                        <input type="text" id="menu-search" placeholder="Поиск товара...">
+                        <i class="fas fa-search"></i>
+                    </div>
+
+                    <div class="menu-container" id="menu-items-container">
+                        <!-- Категории и товары будут загружены через JS -->
+                    </div>
+
+                    <div class="selected-items">
+                        <h4><i class="fas fa-shopping-cart"></i> Выбранные товары</h4>
+                        <div class="selected-items-list" id="selected-items-list">
+                            <p class="empty-selection">Товары не выбраны</p>
+                        </div>
+                        <div class="selected-summary">
+                            <span>Итого:</span>
+                            <span class="total-amount" id="modal-total">0 ₽</span>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" id="cancel-create-order" class="btn-secondary">
+                <i class="fas fa-times"></i> Отмена
+            </button>
+            <button type="submit" form="create-order-form" class="btn-primary" id="submit-order">
+                <i class="fas fa-check"></i> Создать заказ
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Уведомления -->
+<div class="notification-container" id="notification-container"></div>
+
+<script>
+// ===== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =====
+const expandedOrders = new Set();
+let menuData = [];
+let selectedItems = new Map();
+let autoRefreshInterval;
+let isModalOpen = false;
+
+// ===== ОСНОВНАЯ ИНИЦИАЛИЗАЦИЯ =====
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("Страница заказов загружена");
+    loadOrders();
+    setupEventListeners();
+    startAutoRefresh();
+});
+
+// ===== ФУНКЦИИ ДЛЯ ЗАКАЗОВ =====
+
+// Загрузка списка заказов
+function loadOrders(showLoading = true) {
+    if (isModalOpen) return;
+
+    console.log("Загрузка заказов в", new Date().toLocaleTimeString());
+
+    const container = document.getElementById('orders-container');
+    const emptyEl = document.getElementById('empty-orders');
+    const loadingEl = document.getElementById('loading-orders');
+
+    if (!container) return;
+
+    if (showLoading && loadingEl) {
+        loadingEl.style.display = 'flex';
+    }
+
+    if (emptyEl) {
+        emptyEl.style.display = 'none';
+    }
+
+    fetch("/orders/get_orders?_=" + Date.now())
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        })
+        .then(orders => {
+            console.log("Получены заказы:", orders.length);
+
+            if (loadingEl) {
+                loadingEl.style.display = 'none';
+            }
+
+            // Полностью перезаписываем контейнер
+            container.innerHTML = '';
+
+            if (!orders || orders.length === 0) {
+                if (emptyEl) emptyEl.style.display = 'block';
+                updateStats(0, 0, 0);
+                return;
+            }
+
+            let totalRevenue = 0;
+            let totalItems = 0;
+
+            orders.forEach(order => {
+                const orderElement = createOrderElement(order);
+                container.appendChild(orderElement);
+
+                totalRevenue += Number(order.total) || 0;
+                totalItems += (order.items || []).reduce(
+                    (sum, item) => sum + (Number(item.quantity) || 0),
+                    0
+                );
+            });
+
+            attachEventListenersToOrders();
+            updateStats(orders.length, totalRevenue, totalItems);
+        })
+        .catch(error => {
+            console.error('Ошибка загрузки:', error);
+            if (loadingEl) loadingEl.style.display = 'none';
+            showNotification('Ошибка загрузки заказов', 'error');
+        });
+}
+
+// Создание элемента заказа
+function createOrderElement(order) {
+    const div = document.createElement("div");
+    div.className = "order-card";
+    div.dataset.id = order._id;
+    div.id = `order-${order._id}`;
+
+    const createdAt = new Date(order.created_at.replace(' ', 'T'));
+    const timeAgo = getTimeAgo(createdAt);
+    const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+    const isExpanded = expandedOrders.has(order._id);
+
+    div.innerHTML = `
+        <div class="order-header ${isExpanded ? 'expanded' : ''}">
+            <div class="order-info">
+                <div class="order-id">
+                    <span class="order-number">Заказ #${order.daily_id}</span>
+                    <span class="order-time">${timeAgo}</span>
+                </div>
+                <div class="order-customer">
+                    <i class="fas fa-user"></i>
+                    <span>${order.user_name || 'Гость'}</span>
+                    ${order.phone ? `<span class="order-phone"><i class="fas fa-phone"></i> ${order.phone}</span>` : ''}
+                </div>
+            </div>
+            <div class="order-summary">
+                <div class="order-amount">${Number(order.total || 0).toLocaleString('ru-RU')} ₽</div>
+                <div class="order-items">${itemCount} шт.</div>
+            </div>
+            <button class="order-toggle">
+                <i class="fas fa-chevron-${isExpanded ? 'up' : 'down'}"></i>
+            </button>
+        </div>
+        <div class="order-content" style="max-height: ${isExpanded ? '2000px' : '0'}; opacity: ${isExpanded ? '1' : '0'}; padding: ${isExpanded ? '25px' : '0 25px'};">
+            <div class="order-details">
+                <div class="detail-item">
+                    <i class="fas fa-clock"></i>
+                    <span>Создан: ${order.created_at}</span>
+                </div>
+                <div class="detail-item">
+                    <i class="fas fa-shopping-basket"></i>
+                    <span>Товаров: ${order.items.length}</span>
+                </div>
+            </div>
+
+            <div class="order-items-list">
+                <h4><i class="fas fa-list"></i> Состав заказа (${order.items.length})</h4>
+                <div class="items-table">
+                    ${order.items.map(item => `
+                    <div class="item-row">
+                        <div class="item-name">${item.name}</div>
+                        <div class="item-quantity">${item.quantity} × ${item.price} ₽</div>
+                        <div class="item-total">${(item.quantity * item.price).toLocaleString('ru-RU')} ₽</div>
+                    </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div class="order-footer">
+                <button class="mark-done-btn btn-success"
+                        data-order-id="${order._id}"
+                        data-order-amount="${order.total}"
+                        data-order-items="${itemCount}">
+                    <i class="fas fa-check"></i> Завершить заказ
+                </button>
+            </div>
+        </div>
+    `;
+
+    return div;
+}
+
+// Обновление статистики
+function updateStats(orderCount, revenue, itemCount) {
+    const activeCountEl = document.getElementById('active-orders-count');
+    const totalRevenueEl = document.getElementById('total-revenue');
+    const totalItemsEl = document.getElementById('total-items');
+
+    if (activeCountEl) {
+        activeCountEl.textContent = orderCount;
+    }
+    if (totalRevenueEl) {
+        totalRevenueEl.textContent = revenue.toLocaleString('ru-RU') + ' ₽';
+    }
+    if (totalItemsEl) {
+        totalItemsEl.textContent = itemCount;
+    }
+}
+
+// Пересчет статистики после удаления заказа
+function updateStatsAfterOrderRemoval(removedAmount, removedItemCount) {
+    const activeCountEl = document.getElementById('active-orders-count');
+    const totalRevenueEl = document.getElementById('total-revenue');
+    const totalItemsEl = document.getElementById('total-items');
+
+    if (!activeCountEl || !totalRevenueEl || !totalItemsEl) return;
+
+    // Получаем текущие значения
+    let currentActiveCount = parseInt(activeCountEl.textContent) || 0;
+    let currentRevenue = parseFloat(totalRevenueEl.textContent.replace(/[^0-9.]/g, '')) || 0;
+    let currentTotalItems = parseInt(totalItemsEl.textContent) || 0;
+
+    // Вычитаем данные удаленного заказа
+    currentActiveCount = Math.max(0, currentActiveCount - 1);
+    currentRevenue = Math.max(0, currentRevenue - removedAmount);
+    currentTotalItems = Math.max(0, currentTotalItems - removedItemCount);
+
+    // Обновляем элементы статистики
+    updateStats(currentActiveCount, currentRevenue, currentTotalItems);
+
+    // Показываем пустое состояние, если нет заказов
+    const emptyEl = document.getElementById('empty-orders');
+    const container = document.getElementById('orders-container');
+    const loadingEl = document.getElementById('loading-orders');
+
+    if (currentActiveCount === 0 && emptyEl) {
+        emptyEl.style.display = 'block';
+        container.innerHTML = '';
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+}
+
+// Добавление обработчиков событий к заказам
+function attachEventListenersToOrders() {
+    // Обработчики для разворачивания/сворачивания
+    document.querySelectorAll('.order-toggle').forEach(toggleBtn => {
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+
+            const orderCard = this.closest('.order-card');
+            const content = orderCard.querySelector('.order-content');
+            const icon = this.querySelector('i');
+            const orderId = orderCard.dataset.id;
+            const header = orderCard.querySelector('.order-header');
+
+            const isExpanded = content.style.maxHeight === '2000px';
+
+            if (isExpanded) {
+                // Сворачиваем
+                content.style.maxHeight = '0';
+                content.style.opacity = '0';
+                content.style.padding = '0 25px';
+                icon.className = 'fas fa-chevron-down';
+                header.classList.remove('expanded');
+                expandedOrders.delete(orderId);
+            } else {
+                // Разворачиваем
+                content.style.maxHeight = '2000px';
+                content.style.opacity = '1';
+                content.style.padding = '25px';
+                icon.className = 'fas fa-chevron-up';
+                header.classList.add('expanded');
+                expandedOrders.add(orderId);
+            }
+        });
+    });
+
+    // Обработчики для кнопок завершения
+    document.querySelectorAll('.mark-done-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+
+            const orderId = this.dataset.orderId;
+            const orderAmount = parseFloat(this.dataset.orderAmount) || 0;
+            const orderItems = parseInt(this.dataset.orderItems) || 0;
+
+            markOrderAsDone(orderId, orderAmount, orderItems);
+        });
+    });
+}
+
+// Время назад
+function getTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+
+    if (diffMins < 1) return 'только что';
+    if (diffMins < 60) return `${diffMins} мин назад`;
+    if (diffHours < 24) return `${diffHours} ч назад`;
+    return date.toLocaleDateString('ru-RU');
+}
+
+// ===== АВТООБНОВЛЕНИЕ =====
+
+// Запуск автообновления
+function startAutoRefresh() {
+    // Останавливаем предыдущий интервал, если он был
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+
+    console.log('Автообновление запущено');
+
+    // Первое обновление
+    loadOrders();
+
+    // Устанавливаем интервал обновления каждые 5 секунд
+    autoRefreshInterval = setInterval(() => {
+        // Бесшумное обновление (без показа индикатора загрузки)
+        loadOrders(false);
+    }, 5000); // 5 секунд
+}
+
+// Остановка автообновления
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        console.log('Автообновление остановлено');
+    }
+}
+
+// ===== МОДАЛЬНОЕ ОКНО СОЗДАНИЯ ЗАКАЗА =====
+
+// Открытие модального окна
+async function openCreateOrderModal() {
+    const modal = document.getElementById('create-order-modal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    // Устанавливаем флаг, что модальное окно открыто
+    isModalOpen = true;
+
+    // Останавливаем автообновление пока модальное окно открыто
+    stopAutoRefresh();
+
+    // Загрузка меню
+    await loadMenuForOrder();
+
+    // Сброс формы
+    document.getElementById('create-order-form').reset();
+    selectedItems.clear();
+    updateSelectedItemsList();
+    updateModalTotal();
+}
+
+// Загрузка меню для заказа
+async function loadMenuForOrder() {
+    const container = document.getElementById('menu-items-container');
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Загрузка меню...</div>';
+
+    try {
+        const response = await fetch("{{ url_for('menu.get_items') }}");
+        const data = await response.json();
+        menuData = data;
+
+        // Группировка по категориям
+        const grouped = {};
+        data.forEach(item => {
+            if (!grouped[item.category]) grouped[item.category] = [];
+            grouped[item.category].push(item);
+        });
+
+        // Рендер категорий
+        container.innerHTML = '';
+
+        for (const [category, items] of Object.entries(grouped)) {
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'menu-category';
+            categoryDiv.innerHTML = `
+                <div class="category-header">
+                    <h4><i class="fas fa-folder"></i> ${category}</h4>
+                    <span class="item-count">${items.length} товаров</span>
+                </div>
+                <div class="category-items">
+                    ${items.map(item => `
+                    <div class="menu-item-card" data-id="${item.id}">
+                        <div class="item-info">
+                            <div class="item-name">${item.name}</div>
+                            <div class="item-price">${item.price} ₽</div>
+                        </div>
+                        <div class="item-actions">
+                            <button type="button" class="btn-icon dec-item" title="Уменьшить">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <input type="number"
+                                   min="0"
+                                   value="0"
+                                   class="item-quantity-input"
+                                   data-id="${item.id}"
+                                   data-price="${item.price}"
+                                   data-name="${item.name}">
+                            <button type="button" class="btn-icon inc-item" title="Увеличить">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    `).join('')}
+                </div>
+            `;
+            container.appendChild(categoryDiv);
+        }
+
+        // Настройка обработчиков
+        setupMenuHandlers();
+
+    } catch (error) {
+        console.error('Ошибка загрузки меню:', error);
+        container.innerHTML = '<div class="error">Ошибка загрузки меню</div>';
+    }
+}
+
+// Настройка обработчиков для меню
+function setupMenuHandlers() {
+    // Кнопки увеличения количества
+    document.querySelectorAll('.inc-item').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const itemCard = e.target.closest('.menu-item-card');
+            const input = itemCard.querySelector('.item-quantity-input');
+            input.value = parseInt(input.value) + 1;
+            updateItemSelection(input);
+        });
+    });
+
+    // Кнопки уменьшения количества
+    document.querySelectorAll('.dec-item').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const itemCard = e.target.closest('.menu-item-card');
+            const input = itemCard.querySelector('.item-quantity-input');
+            const newValue = Math.max(0, parseInt(input.value) - 1);
+            input.value = newValue;
+            updateItemSelection(input);
+        });
+    });
+
+    // Ручной ввод количества
+    document.querySelectorAll('.item-quantity-input').forEach(input => {
+        input.addEventListener('change', (e) => {
+            e.preventDefault();
+            updateItemSelection(input);
+        });
+        input.addEventListener('input', (e) => {
+            e.preventDefault();
+            input.value = input.value.replace(/[^0-9]/g, '');
+            if (input.value === '') input.value = '0';
+            if (parseInt(input.value) > 99) input.value = '99';
+        });
+    });
+
+    // Поиск по меню
+    const searchInput = document.getElementById('menu-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            document.querySelectorAll('.menu-item-card').forEach(card => {
+                const itemName = card.querySelector('.item-name').textContent.toLowerCase();
+                if (itemName.includes(searchTerm)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    }
+}
+
+// Обновление выбора товара
+function updateItemSelection(input) {
+    const id = input.dataset.id;
+    const quantity = parseInt(input.value);
+
+    if (quantity > 0) {
+        selectedItems.set(id, {
+            id: id,
+            name: input.dataset.name,
+            price: parseFloat(input.dataset.price),
+            quantity: quantity
+        });
+    } else {
+        selectedItems.delete(id);
+    }
+
+    updateSelectedItemsList();
+    updateModalTotal();
+}
+
+// Обновление списка выбранных товаров
+function updateSelectedItemsList() {
+    const container = document.getElementById('selected-items-list');
+
+    if (selectedItems.size === 0) {
+        container.innerHTML = '<p class="empty-selection">Товары не выбраны</p>';
+        return;
+    }
+
+    container.innerHTML = '';
+    selectedItems.forEach((item, id) => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'selected-item';
+        itemDiv.innerHTML = `
+            <div class="selected-item-info">
+                <span class="selected-item-name">${item.name}</span>
+                <span class="selected-item-price">${item.price} ₽ × ${item.quantity}</span>
+            </div>
+            <div class="selected-item-total">
+                ${(item.price * item.quantity).toLocaleString('ru-RU')} ₽
+            </div>
+        `;
+        container.appendChild(itemDiv);
+    });
+}
+
+// Обновление общей суммы в модальном окне
+function updateModalTotal() {
+    let total = 0;
+    selectedItems.forEach(item => {
+        total += item.price * item.quantity;
+    });
+    const modalTotalEl = document.getElementById('modal-total');
+    if (modalTotalEl) {
+        modalTotalEl.textContent = total.toLocaleString('ru-RU') + ' ₽';
+    }
+}
+
+// Создание заказа
+async function createOrder() {
+    console.log('Создание заказа...');
+
+    if (selectedItems.size === 0) {
+        showNotification('Выберите хотя бы один товар', 'warning');
+        return false;
+    }
+
+    const user_name = document.getElementById('user_name').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const items = Array.from(selectedItems.values());
+
+    console.log('Данные заказа:', { user_name, phone, items });
+
+    try {
+        const response = await fetch("{{ url_for('orders.create_order') }}", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({user_name, phone, items})
+        });
+
+        const data = await response.json();
+
+        if (data.status === "ok") {
+            showNotification('Заказ успешно создан', 'success');
+            return true;
+        } else {
+            showNotification(data.msg || 'Ошибка при создании заказа', 'error');
+            return false;
+        }
+    } catch (error) {
+        console.error('Ошибка создания заказа:', error);
+        showNotification('Ошибка соединения', 'error');
+        return false;
+    }
+}
+
+// ===== ОБРАБОТЧИКИ СОБЫТИЙ =====
+
+function setupEventListeners() {
+    const modal = document.getElementById('create-order-modal');
+    const form = document.getElementById('create-order-form');
+
+    // Открытие модального окна
+    const openCreateOrderBtn = document.getElementById('open-create-order');
+    if (openCreateOrderBtn) {
+        openCreateOrderBtn.addEventListener('click', openCreateOrderModal);
+    }
+
+    const openCreateOrderEmptyBtn = document.getElementById('open-create-order-empty');
+    if (openCreateOrderEmptyBtn) {
+        openCreateOrderEmptyBtn.addEventListener('click', openCreateOrderModal);
+    }
+
+    // Закрытие модального окна
+    const closeCreateOrderBtn = document.getElementById('close-create-order');
+    if (closeCreateOrderBtn) {
+        closeCreateOrderBtn.addEventListener('click', closeModal);
+    }
+
+    const cancelCreateOrderBtn = document.getElementById('cancel-create-order');
+    if (cancelCreateOrderBtn) {
+        cancelCreateOrderBtn.addEventListener('click', closeModal);
+    }
+
+    // Закрытие по клику вне модального окна
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+    }
+
+    // Отправка формы
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            console.log('Форма создания заказа отправлена');
+
+            const submitBtn = document.getElementById('submit-order');
+            const originalText = submitBtn.innerHTML;
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Создание...';
+
+            const success = await createOrder();
+
+            if (success) {
+                closeModal();
+                // НЕМЕДЛЕННОЕ обновление списка заказов
+                setTimeout(() => {
+                    loadOrders(true);
+                    // Дополнительное обновление через секунду для надежности
+                    setTimeout(() => loadOrders(false), 1000);
+                }, 500);
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+    }
+}
+
+// Закрытие модального окна
+function closeModal() {
+    const modal = document.getElementById('create-order-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    document.body.style.overflow = 'auto';
+
+    // Сбрасываем флаг, что модальное окно закрыто
+    isModalOpen = false;
+
+    // Запускаем автообновление заново
+    startAutoRefresh();
+
+    // Немедленно обновляем заказы при закрытии модального окна
+    loadOrders();
+}
+
+// Завершение заказа с пересчетом статистики
+async function markOrderAsDone(orderId, orderAmount, orderItems) {
+    if (!confirm('Вы уверены, что хотите завершить этот заказ?')) return;
+
+    try {
+        const response = await fetch("{{ url_for('orders.mark_done') }}", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ order_id: orderId })
+        });
+
+        const data = await response.json();
+
+        if (data.status === "ok") {
+            const orderEl = document.getElementById(`order-${orderId}`);
+            if (orderEl) {
+                // Анимация удаления
+                orderEl.style.opacity = '0';
+                orderEl.style.transform = 'translateX(-100%)';
+                orderEl.style.transition = 'all 0.3s ease';
+
+                setTimeout(() => {
+                    orderEl.remove();
+                    expandedOrders.delete(orderId);
+
+                    // Пересчитываем статистику
+                    updateStatsAfterOrderRemoval(orderAmount, orderItems);
+
+                }, 300);
+            }
+            showNotification('Заказ завершен', 'success');
+
+            // Через 1 секунду обновляем заказы полностью (на случай, если были изменения на сервере)
+            setTimeout(() => {
+                loadOrders(false);
+            }, 1000);
+
+        } else {
+            showNotification('Ошибка при завершении заказа', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка завершения заказа:', error);
+        showNotification('Ошибка соединения', 'error');
+    }
+}
+
+// ===== УВЕДОМЛЕНИЯ =====
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+        <span>${message}</span>
+        <button class="close-notification">&times;</button>
+    `;
+
+    container.appendChild(notification);
+
+    setTimeout(() => notification.classList.add('show'), 10);
+
+    const autoClose = setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 4000);
+
+    notification.querySelector('.close-notification').addEventListener('click', () => {
+        clearTimeout(autoClose);
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    });
+}
+
+// ===== ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ =====
+document.getElementById('phone')?.addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.startsWith('8')) value = '7' + value.substring(1);
+    if (value.length > 0) value = '+7 ' + value.substring(1, 4) + ' ' + value.substring(4, 7) + '-' + value.substring(7, 9) + '-' + value.substring(9, 11);
+    e.target.value = value.trim();
+});
+
+// Обработка видимости страницы
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        // Страница скрыта - останавливаем автообновление
+        stopAutoRefresh();
+    } else {
+        // Страница снова видна - запускаем автообновление и сразу обновляем
+        startAutoRefresh();
+    }
+});
+
+// Управление автообновлением по желанию пользователя
+window.toggleAutoRefresh = function() {
+    if (autoRefreshInterval) {
+        stopAutoRefresh();
+        showNotification('Автообновление остановлено', 'info');
+        return false;
+    } else {
+        startAutoRefresh();
+        showNotification('Автообновление включено', 'success');
+        return true;
+    }
+};
+
+// Функция для принудительного обновления заказов
+window.refreshOrders = function() {
+    loadOrders(true);
+    showNotification('Заказы обновлены', 'info');
+};
+
+// Простая функция для отладки
+function debugOrders() {
+    console.log("=== ДЕБАГ ЗАКАЗОВ ===");
+    console.log("Развернутые заказы:", Array.from(expandedOrders));
+    console.log("Заказов на странице:", document.querySelectorAll('.order-card').length);
+    console.log("Кнопки завершения:", document.querySelectorAll('.mark-done-btn').length);
+    console.log("Модальное окно открыто:", isModalOpen);
+    console.log("Автообновление:", autoRefreshInterval ? 'активно' : 'неактивно');
+
+    // Текущая статистика
+    const orders = document.querySelectorAll('.order-card');
+    let totalRevenue = 0;
+    let totalItems = 0;
+
+    orders.forEach(order => {
+        const amountText = order.querySelector('.order-amount')?.textContent;
+        const amount = parseFloat(amountText?.replace(/[^0-9.]/g, '')) || 0;
+        totalRevenue += amount;
+
+        const itemsText = order.querySelector('.order-items')?.textContent;
+        const items = parseInt(itemsText?.replace(/[^0-9]/g, '')) || 0;
+        totalItems += items;
+    });
+
+    console.log("Текущая статистика:");
+    console.log("  Количество заказов:", orders.length);
+    console.log("  Общая сумма:", totalRevenue);
+    console.log("  Всего товаров:", totalItems);
+    console.log("==========================");
+}
+
+// Вызываем отладку при загрузке
+window.debugOrders = debugOrders;
+window.toggleAutoRefresh = toggleAutoRefresh;
+window.refreshOrders = refreshOrders;
+
+// Индикатор обновления (опционально, можно добавить в HTML)
+function createRefreshIndicator() {
+    const indicator = document.createElement('div');
+    indicator.id = 'refresh-indicator';
+    indicator.style.position = 'fixed';
+    indicator.style.bottom = '10px';
+    indicator.style.right = '10px';
+    indicator.style.padding = '5px 10px';
+    indicator.style.background = '#28a745';
+    indicator.style.color = 'white';
+    indicator.style.borderRadius = '4px';
+    indicator.style.fontSize = '12px';
+    indicator.style.zIndex = '9999';
+    indicator.style.cursor = 'pointer';
+    indicator.style.display = 'none';
+    indicator.textContent = '🔄 Обновление...';
+    indicator.title = 'Нажмите для обновления заказов';
+
+    indicator.addEventListener('click', () => {
+        refreshOrders();
+    });
+
+    document.body.appendChild(indicator);
+
+    // Показываем индикатор при обновлении
+    setInterval(() => {
+        if (autoRefreshInterval && !isModalOpen) {
+            indicator.style.display = 'block';
+            setTimeout(() => {
+                indicator.style.display = 'none';
+            }, 2000);
+        }
+    }, 5000);
+}
+
+// Создаем индикатор
+createRefreshIndicator();
+</script>
+
+</body>
+</html>

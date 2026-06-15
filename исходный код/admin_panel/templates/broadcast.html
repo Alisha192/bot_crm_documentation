@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Рассылки</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='broadcast.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Навигация -->
+    <div class="header">
+        <nav class="nav-center">
+            <a href="{{ url_for('orders.orders') }}">
+                <i class="fas fa-shopping-cart"></i> Заказы
+            </a>
+            <a href="{{ url_for('menu.menu') }}">
+                <i class="fas fa-coffee"></i> Меню
+            </a>
+            <a href="{{ url_for('dashboard.dashboard') }}">
+                <i class="fas fa-chart-line"></i> Аналитика
+            </a>
+            <a href="{{ url_for('broadcast.broadcast') }}" class="active">
+                <i class="fas fa-bullhorn"></i> Рассылки
+            </a>
+        </nav>
+        <nav class="nav-right">
+            <a href="{{ url_for('auth.logout') }}" class="logout-btn">
+                <i class="fas fa-sign-out-alt"></i> Выход
+            </a>
+        </nav>
+    </div>
+
+    <!-- Основной контент -->
+    <main class="broadcast-page">
+        <!-- Шапка -->
+        <header class="broadcast-header">
+            <div class="header-content">
+                <h1><i class="fas fa-bullhorn"></i> Массовые рассылки</h1>
+                <p class="subtitle">Отправка сообщений всем пользователям бота</p>
+                <div class="bot-info">
+                    <span class="bot-status-indicator {% if bot_status == 'running' %}status-online{% else %}status-offline{% endif %}">
+                        <i class="fas fa-circle"></i>
+                        {% if bot_status == 'running' %}Бот запущен{% else %}Бот остановлен{% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="header-stats">
+                <div class="stat-card">
+                    <i class="fas fa-users"></i>
+                    <div>
+                        <h3 id="total-users">{{ total_users }}</h3>
+                        <small>Всего пользователей</small>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-user-check"></i>
+                    <div>
+                        <h3 id="active-users">{{ active_users }}</h3>
+                        <small>Активных (30 дней)</small>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Основной редактор -->
+        <section class="broadcast-editor">
+            <div class="editor-header">
+                <h2><i class="fas fa-edit"></i> Создание рассылки</h2>
+                <div class="message-type">
+                    <button class="type-btn active" data-type="text" id="type-text">
+                        <i class="fas fa-font"></i> Текст
+                    </button>
+                    <button class="type-btn" data-type="photo" id="type-photo">
+                        <i class="fas fa-image"></i> Фото
+                    </button>
+                    <button class="type-btn" data-type="document" id="type-document">
+                        <i class="fas fa-file"></i> Файл
+                    </button>
+                </div>
+            </div>
+
+            <!-- Поле ввода сообщения -->
+            <div class="message-editor">
+                <div class="editor-toolbar">
+                    <button class="tool-btn" data-format="bold" title="Жирный">
+                        <i class="fas fa-bold"></i>
+                    </button>
+                    <button class="tool-btn" data-format="italic" title="Курсив">
+                        <i class="fas fa-italic"></i>
+                    </button>
+                    <button class="tool-btn" data-format="underline" title="Подчеркнутый">
+                        <i class="fas fa-underline"></i>
+                    </button>
+                    <button class="tool-btn" data-format="link" title="Ссылка">
+                        <i class="fas fa-link"></i>
+                    </button>
+                    <button class="tool-btn" data-format="code" title="Код">
+                        <i class="fas fa-code"></i>
+                    </button>
+                    <div class="spacer"></div>
+                    <span class="char-count">0/4096</span>
+                </div>
+
+                <textarea
+                    id="message-input"
+                    placeholder="Введите текст рассылки... Максимум 4096 символов. Поддерживается HTML-разметка: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;a href='ссылка'&gt;текст&lt;/a&gt;"
+                    rows="10"
+                    maxlength="4096"
+                ></textarea>
+
+                <!-- Поле для файла -->
+                <div class="file-upload" id="file-upload" style="display: none;">
+                    <div class="upload-area" id="upload-area">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Перетащите файл сюда или нажмите для выбора</p>
+                        <small>Для фото: JPG, PNG, GIF (до 20MB)<br>Для документов: PDF, DOC, DOCX (до 50MB)</small>
+                        <input type="file" id="file-input" accept="image/*,.pdf,.doc,.docx">
+                    </div>
+                    <div class="file-preview" id="file-preview"></div>
+                </div>
+
+                <div class="preview-section">
+                    <h3><i class="fas fa-eye"></i> Предпросмотр</h3>
+                    <div class="preview-container" id="message-preview">
+                        <div class="telegram-preview">
+                            <div class="telegram-header">
+                                <div class="telegram-avatar">
+                                    <i class="fas fa-robot"></i>
+                                </div>
+                                <div>
+                                    <strong>Ваш бот</strong>
+                                    <small>только что</small>
+                                </div>
+                            </div>
+                            <div class="telegram-message" id="telegram-preview">
+                                Сообщение появится здесь...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Настройки рассылки -->
+            <div class="broadcast-settings">
+                <h3><i class="fas fa-cog"></i> Настройки отправки</h3>
+
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="send-to-all" checked>
+                            Отправить всем пользователям
+                        </label>
+                        <small id="total-users-text">Всего пользователей: {{ total_users }}</small>
+                    </div>
+
+                    <div class="setting-item" id="segment-select" style="display: none;">
+                        <label>Сегмент пользователей:</label>
+                        <select id="user-segment">
+                            <option value="all">Все пользователи</option>
+                            <option value="active">Активные (заказы за 30 дней)</option>
+                            <option value="with_orders">Сделали заказы</option>
+                            <option value="no_orders">Без заказов</option>
+                            <option value="recent">Новые (за неделю)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item">
+                        <label>Время отправки:</label>
+                        <div class="time-options">
+                            <label>
+                                <input type="radio" name="send-time" value="now" checked>
+                                Сразу
+                            </label>
+                            <label>
+                                <input type="radio" name="send-time" value="schedule">
+                                По расписанию
+                            </label>
+                        </div>
+                        <div id="schedule-time" style="display: none; margin-top: 10px;">
+                            <input type="datetime-local" id="scheduled-datetime">
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="disable-notification">
+                            Отправить без звука
+                        </label>
+                        <small>Пользователи не получат уведомление</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Кнопки действий -->
+            <div class="broadcast-actions">
+                <button class="btn-secondary" onclick="previewMessage()" id="preview-btn">
+                    <i class="fas fa-eye"></i> Предпросмотр
+                </button>
+                <button class="btn-success" onclick="validateAndSend()" id="send-button">
+                    <i class="fas fa-paper-plane"></i> Отправить рассылку
+                </button>
+                <button class="btn-danger" onclick="cancelBroadcast()">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+            </div>
+        </section>
+
+        <!-- Статус отправки -->
+        <section class="broadcast-status" id="status-section" style="display: none;">
+            <h3 id="status-title"><i class="fas fa-sync-alt fa-spin"></i> Отправка...</h3>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progress-text">0/0</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+            </div>
+            <div class="status-details" id="status-details">
+                <!-- Детали будут добавляться динамически -->
+            </div>
+        </section>
+
+        <!-- История рассылок -->
+        <section class="broadcast-history" id="history-section">
+            <div class="history-header">
+                <h3><i class="fas fa-history"></i> История рассылок</h3>
+                <button class="btn-secondary" onclick="refreshHistory()">
+                    <i class="fas fa-sync-alt"></i> Обновить
+                </button>
+            </div>
+            <div class="history-table" id="history-table">
+                <!-- Таблица будет загружена динамически -->
+                <div class="loading-history">Загрузка истории...</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Уведомления -->
+    <div class="notification-container" id="notification-container"></div>
+
+    <!-- Модальное окно подтверждения -->
+    <div class="modal-overlay" id="confirm-modal" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Подтверждение</h3>
+                <button class="close-modal" onclick="closeConfirmModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message">Вы уверены, что хотите отправить рассылку?</p>
+                <div class="confirm-details" id="confirm-details">
+                    <div class="confirm-stats">
+                        <div><i class="fas fa-users"></i> <span id="confirm-users">0</span> пользователей</div>
+                        <div><i class="fas fa-font"></i> <span id="confirm-length">0</span> символов</div>
+                        <div>
+                            <i class="fas {% if bot_status == 'running' %}fa-check-circle{% else %}fa-times-circle{% endif %}"></i>
+                            Бот: {% if bot_status == 'running' %}запущен{% else %}остановлен{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="warning-box" id="bot-warning" style="{% if bot_status != 'running' %}display: flex;{% else %}display: none;{% endif %}">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Внимание: бот не запущен! Рассылка не будет отправлена.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeConfirmModal()">
+                    Отмена
+                </button>
+                <button class="btn-danger" id="confirm-send-btn" onclick="confirmSend()">
+                    <i class="fas fa-paper-plane"></i> Отправить
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ===== ПЕРЕМЕННЫЕ =====
+    let currentMessageType = 'text';
+    let selectedFile = null;
+    let isSending = false;
+    let broadcastInProgress = false;
+
+    // ===== ОБРАБОТЧИКИ СОБЫТИЙ =====
+    document.addEventListener('DOMContentLoaded', function() {
+        // Инициализация
+        loadStats();
+        loadHistory();
+
+        // Обновление статуса бота
+        updateBotStatus();
+
+        // Переключение типа сообщения
+        document.querySelectorAll('.type-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentMessageType = this.dataset.type;
+
+                // Показываем/скрываем поле для файла
+                const fileUpload = document.getElementById('file-upload');
+                if (currentMessageType === 'text') {
+                    fileUpload.style.display = 'none';
+                } else {
+                    fileUpload.style.display = 'block';
+                }
+
+                updatePreview();
+            });
+        });
+
+        // Обработка ввода текста
+        const messageInput = document.getElementById('message-input');
+        messageInput.addEventListener('input', function() {
+            updateCharCount();
+            updatePreview();
+        });
+
+        // Кнопки форматирования
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const format = this.dataset.format;
+                applyFormat(format);
+            });
+        });
+
+        // Загрузка файла
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFileSelect(file);
+            }
+        });
+
+        // Drag & drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                handleFileSelect(file);
+            }
+        });
+
+        // Настройки рассылки
+        document.getElementById('send-to-all').addEventListener('change', function() {
+            document.getElementById('segment-select').style.display =
+                this.checked ? 'none' : 'block';
+        });
+
+        document.querySelectorAll('input[name="send-time"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                document.getElementById('schedule-time').style.display =
+                    this.value === 'schedule' ? 'block' : 'none';
+            });
+        });
+
+        // Обновление статуса каждые 30 секунд
+        setInterval(updateBotStatus, 30000);
+    });
+
+    // ===== ОСНОВНЫЕ ФУНКЦИИ =====
+
+    // Обновление счетчика символов
+    function updateCharCount() {
+        const textarea = document.getElementById('message-input');
+        const count = textarea.value.length;
+        const max = 4096;
+
+        document.querySelector('.char-count').textContent = `${count}/${max}`;
+
+        if (count > max * 0.9) {
+            document.querySelector('.char-count').style.color = '#ef4444';
+        } else if (count > max * 0.75) {
+            document.querySelector('.char-count').style.color = '#f59e0b';
+        } else {
+            document.querySelector('.char-count').style.color = '#6b7280';
+        }
+    }
+
+    // Применение форматирования
+    function applyFormat(format) {
+        const textarea = document.getElementById('message-input');
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const selectedText = textarea.value.substring(start, end);
+
+        let formattedText = '';
+
+        switch(format) {
+            case 'bold':
+                formattedText = `<b>${selectedText}</b>`;
+                break;
+            case 'italic':
+                formattedText = `<i>${selectedText}</i>`;
+                break;
+            case 'underline':
+                formattedText = `<u>${selectedText}</u>`;
+                break;
+            case 'link':
+                const url = prompt('Введите URL:', 'https://');
+                if (url) {
+                    formattedText = `<a href="${url}">${selectedText || 'Ссылка'}</a>`;
+                }
+                break;
+            case 'code':
+                formattedText = `<code>${selectedText}</code>`;
+                break;
+        }
+
+        if (formattedText) {
+            const newText = textarea.value.substring(0, start) +
+                           formattedText +
+                           textarea.value.substring(end);
+
+            textarea.value = newText;
+            updateCharCount();
+            updatePreview();
+
+            // Восстанавливаем фокус
+            textarea.focus();
+            textarea.setSelectionRange(
+                start + formattedText.length,
+                start + formattedText.length
+            );
+        }
+    }
+
+    // Обработка выбора файла
+    function handleFileSelect(file) {
+        const validImageTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        const validDocTypes = ['application/pdf', 'application/msword',
+                               'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+
+        let maxSize = 20 * 1024 * 1024; // 20MB для фото
+        if (currentMessageType === 'document') {
+            maxSize = 50 * 1024 * 1024; // 50MB для документов
+        }
+
+        // Проверка типа файла
+        if (currentMessageType === 'photo' && !validImageTypes.includes(file.type)) {
+            showNotification('Для фото поддерживаются только JPG, PNG, GIF', 'error');
+            return;
+        }
+
+        if (currentMessageType === 'document' && !validDocTypes.includes(file.type)) {
+            showNotification('Для документов поддерживаются только PDF, DOC, DOCX', 'error');
+            return;
+        }
+
+        // Проверка размера
+        if (file.size > maxSize) {
+            showNotification(`Файл слишком большой (макс. ${formatFileSize(maxSize)})`, 'error');
+            return;
+        }
+
+        selectedFile = file;
+
+        const preview = document.getElementById('file-preview');
+        preview.innerHTML = `
+            <div class="file-info">
+                <i class="fas fa-file fa-2x"></i>
+                <div>
+                    <strong>${file.name}</strong>
+                    <small>${formatFileSize(file.size)}</small>
+                </div>
+                <button class="remove-file" onclick="removeFile()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        // Если это изображение, показываем превью
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.innerHTML = `
+                    <div class="file-info">
+                        <img src="${e.target.result}" class="file-image">
+                        <div>
+                            <strong>${file.name}</strong>
+                            <small>${formatFileSize(file.size)}</small>
+                        </div>
+                        <button class="remove-file" onclick="removeFile()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        updatePreview();
+    }
+
+    // Удаление файла
+    function removeFile() {
+        selectedFile = null;
+        document.getElementById('file-input').value = '';
+        document.getElementById('file-preview').innerHTML = '';
+        updatePreview();
+    }
+
+    // Форматирование размера файла
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Обновление превью
+    function updatePreview() {
+        const message = document.getElementById('message-input').value;
+        const preview = document.getElementById('telegram-preview');
+
+        if (!message && !selectedFile) {
+            preview.innerHTML = 'Сообщение появится здесь...';
+            return;
+        }
+
+        let previewHTML = '';
+
+        if (selectedFile && currentMessageType === 'photo') {
+            previewHTML += '<div class="preview-image">📷 <strong>Фото</strong></div>';
+        } else if (selectedFile && currentMessageType === 'document') {
+            previewHTML += '<div class="preview-document">📄 <strong>Файл</strong></div>';
+        }
+
+        if (message) {
+            // Безопасный рендеринг HTML (без выполнения скриптов)
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = message;
+            const safeHTML = tempDiv.innerHTML;
+            previewHTML += `<div class="preview-text">${safeHTML}</div>`;
+        }
+
+        preview.innerHTML = previewHTML;
+    }
+
+    // Предпросмотр перед отправкой
+    async function previewMessage() {
+        const message = document.getElementById('message-input').value;
+
+        if (!message && !selectedFile) {
+            showNotification('Введите сообщение или выберите файл', 'warning');
+            return;
+        }
+
+        try {
+            const response = await fetch('/broadcast/preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    type: currentMessageType
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                const analysis = [];
+                if (result.has_html) analysis.push('содержит HTML');
+                if (result.has_links) analysis.push('содержит ссылки');
+
+                const analysisText = analysis.length > 0 ?
+                    `Анализ: ${analysis.join(', ')}. ` : '';
+
+                showNotification(
+                    `Превью обновлено. Длина: ${result.length} символов. ${analysisText}`,
+                    'success'
+                );
+            } else {
+                showNotification('Ошибка анализа сообщения', 'error');
+            }
+        } catch (error) {
+            console.error('Error previewing message:', error);
+            showNotification('Ошибка при предпросмотре', 'error');
+        }
+    }
+
+    // Валидация и подготовка к отправке
+    async function validateAndSend() {
+        if (isSending) {
+            showNotification('Рассылка уже отправляется', 'warning');
+            return;
+        }
+
+        const message = document.getElementById('message-input').value;
+        const messageType = currentMessageType;
+
+        // Валидация
+        if (!message && !selectedFile && messageType === 'text') {
+            showNotification('Введите текст сообщения', 'warning');
+            return;
+        }
+
+        if ((messageType === 'photo' || messageType === 'document') && !selectedFile) {
+            showNotification('Выберите файл', 'warning');
+            return;
+        }
+
+        // Проверяем статус бота
+        const isBotRunning = await checkBotStatus();
+
+        // Подготовка данных для подтверждения
+        const sendToAll = document.getElementById('send-to-all').checked;
+        const segment = document.getElementById('user-segment').value;
+
+        // Получаем количество пользователей
+        let userCount;
+        if (sendToAll) {
+            userCount = document.getElementById('total-users').textContent || 0;
+        } else {
+            userCount = await getSegmentUserCount(segment);
+        }
+
+        // Показываем модальное окно подтверждения
+        showConfirmModal(message, messageType, userCount, sendToAll, segment, isBotRunning);
+    }
+
+    // Показать модальное окно подтверждения
+    function showConfirmModal(message, messageType, userCount, sendToAll, segment, isBotRunning) {
+        const typeNames = {
+            'text': 'Текст',
+            'photo': 'Фото',
+            'document': 'Файл'
+        };
+
+        const segmentNames = {
+            'all': 'Все пользователи',
+            'active': 'Активные пользователи',
+            'with_orders': 'Пользователи с заказами',
+            'no_orders': 'Пользователи без заказов',
+            'recent': 'Новые пользователи (неделя)'
+        };
+
+        const confirmHTML = `
+            <div class="confirm-stats">
+                <div class="stat-item">
+                    <i class="fas fa-users"></i>
+                    <div>
+                        <div class="stat-label">Получатели</div>
+                        <div class="stat-value">${sendToAll ? 'Все пользователи' : segmentNames[segment]}</div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-user-friends"></i>
+                    <div>
+                        <div class="stat-label">Количество</div>
+                        <div class="stat-value">${userCount} чел.</div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-font"></i>
+                    <div>
+                        <div class="stat-label">Тип</div>
+                        <div class="stat-value">${typeNames[messageType]}</div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <i class="fas fa-ruler"></i>
+                    <div>
+                        <div class="stat-label">Длина</div>
+                        <div class="stat-value">${message.length} символов</div>
+                    </div>
+                </div>
+            </div>
+            <div class="warning-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Это действие нельзя отменить! Рассылка будет отправлена сразу.</span>
+            </div>
+        `;
+
+        document.getElementById('confirm-details').innerHTML = confirmHTML;
+        document.getElementById('confirm-modal').style.display = 'flex';
+
+        // Показываем/скрываем предупреждение о боте
+        const warningBox = document.getElementById('bot-warning');
+        if (isBotRunning) {
+            warningBox.style.display = 'none';
+            document.getElementById('confirm-send-btn').disabled = false;
+        } else {
+            warningBox.style.display = 'flex';
+            document.getElementById('confirm-send-btn').disabled = true;
+        }
+
+        // Сохраняем данные для отправки
+        window.pendingBroadcastData = {
+            message: message,
+            type: messageType,
+            sendToAll: sendToAll,
+            segment: segment,
+            userCount: userCount
+        };
+    }
+
+    // Закрытие модального окна
+    function closeConfirmModal() {
+        document.getElementById('confirm-modal').style.display = 'none';
+    }
+
+    // Подтвержденная отправка
+    async function confirmSend() {
+        closeConfirmModal();
+
+        if (!window.pendingBroadcastData) {
+            showNotification('Ошибка: данные рассылки не найдены', 'error');
+            return;
+        }
+
+        const { message, type, sendToAll, segment } = window.pendingBroadcastData;
+
+        // Показываем статус отправки
+        document.getElementById('status-section').style.display = 'block';
+        document.getElementById('send-button').disabled = true;
+        document.getElementById('preview-btn').disabled = true;
+        isSending = true;
+
+        // Обновляем прогресс
+        updateProgress(0, window.pendingBroadcastData.userCount);
+
+        try {
+            // Подготовка FormData
+            const formData = new FormData();
+            formData.append('message', message);
+            formData.append('type', type);
+            formData.append('send_to_all', sendToAll.toString());
+            formData.append('segment', segment);
+
+            if (selectedFile) {
+                formData.append('file', selectedFile);
+            }
+
+            // Отправка на сервер
+            const response = await fetch('/broadcast/send', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showNotification(result.message || 'Рассылка успешно отправлена!', 'success');
+
+                // Показываем результаты
+                if (result.data) {
+                    updateStatusDetails(result.data);
+                }
+
+                // Сбрасываем форму после успешной отправки
+                setTimeout(() => {
+                    resetForm();
+                }, 2000);
+
+            } else {
+                throw new Error(result.error || 'Ошибка отправки');
+            }
+
+        } catch (error) {
+            console.error('Ошибка при отправке:', error);
+            showNotification('Ошибка: ' + error.message, 'error');
+
+            // Обновляем статус
+            updateStatusDetails({
+                success: 0,
+                failed: 1,
+                errors: [{ error: error.message }]
+            });
+
+        } finally {
+            isSending = false;
+            document.getElementById('send-button').disabled = false;
+            document.getElementById('preview-btn').disabled = false;
+            window.pendingBroadcastData = null;
+
+            // Автоматически скрываем статус через 30 секунд
+            setTimeout(() => {
+                if (!isSending) {
+                    document.getElementById('status-section').style.display = 'none';
+                }
+            }, 30000);
+        }
+    }
+
+    // Обновление деталей статуса
+    function updateStatusDetails(result) {
+        const details = document.getElementById('status-details');
+        const total = result.total || (result.success || 0) + (result.failed || 0);
+        const percent = total > 0 ? Math.round((result.success / total) * 100) : 0;
+
+        // Обновляем заголовок
+        const statusTitle = document.getElementById('status-title');
+        if (percent === 100) {
+            statusTitle.innerHTML = '<i class="fas fa-check-circle"></i> Отправка завершена!';
+        } else if (result.failed > 0) {
+            statusTitle.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Отправка завершена с ошибками';
+        }
+
+        // Обновляем прогресс бар
+        document.getElementById('progress-fill').style.width = `${percent}%`;
+        document.getElementById('progress-text').textContent =
+            `${result.success || 0}/${total}`;
+        document.getElementById('progress-percent').textContent = `${percent}%`;
+
+        // Показываем детали
+        let detailsHTML = `
+            <div class="status-summary">
+                <div class="status-item success">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Успешно: <strong>${result.success || 0}</strong></span>
+                </div>
+                <div class="status-item failed">
+                    <i class="fas fa-times-circle"></i>
+                    <span>Ошибки: <strong>${result.failed || 0}</strong></span>
+                </div>
+                ${result.blocked ? `
+                <div class="status-item blocked">
+                    <i class="fas fa-ban"></i>
+                    <span>Заблокировали: <strong>${result.blocked || 0}</strong></span>
+                </div>` : ''}
+                ${result.not_found ? `
+                <div class="status-item not-found">
+                    <i class="fas fa-user-slash"></i>
+                    <span>Не найдены: <strong>${result.not_found || 0}</strong></span>
+                </div>` : ''}
+                <div class="status-item total">
+                    <i class="fas fa-users"></i>
+                    <span>Всего: <strong>${total}</strong></span>
+                </div>
+            </div>
+        `;
+
+        if (result.errors && result.errors.length > 0) {
+            detailsHTML += `
+                <div class="errors-list">
+                    <h4>Ошибки отправки (первые 5):</h4>
+                    <ul>
+                        ${result.errors.slice(0, 5).map(err =>
+                            `<li><code>${err.chat_id ? 'ID ' + err.chat_id : 'Неизвестный'}</code>: ${err.error || 'Неизвестная ошибка'}</li>`
+                        ).join('')}
+                    </ul>
+                    ${result.errors.length > 5 ?
+                        `<small>...и еще ${result.errors.length - 5} ошибок</small>` : ''}
+                </div>
+            `;
+        }
+
+        details.innerHTML = detailsHTML;
+
+        // Обновляем историю после отправки
+        loadHistory();
+    }
+
+    // Сброс формы
+    function resetForm() {
+        document.getElementById('message-input').value = '';
+        removeFile();
+        updateCharCount();
+        updatePreview();
+    }
+
+    // Отмена рассылки
+    function cancelBroadcast() {
+        if (isSending) {
+            if (!confirm('Рассылка в процессе отправки. Вы уверены, что хотите отменить?')) {
+                return;
+            }
+            // Можно добавить отмену текущей рассылки
+        } else if (document.getElementById('message-input').value || selectedFile) {
+            if (!confirm('Вы уверены, что хотите очистить форму?')) {
+                return;
+            }
+        }
+
+        resetForm();
+        showNotification('Форма очищена', 'info');
+    }
+
+    // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+
+    // Проверка статуса бота
+    async function checkBotStatus() {
+        try {
+            const response = await fetch('/broadcast/status');
+            const result = await response.json();
+            return {
+                is_running: result.status?.status === 'running',
+                ...result.status
+            };
+        } catch (error) {
+            console.error('Error checking bot status:', error);
+            return { is_running: false };
+        }
+    }
+
+    // Обновление статуса бота на странице
+    async function updateBotStatus() {
+        try {
+            const response = await fetch('/broadcast/status');
+            const result = await response.json();
+
+            if (result.success) {
+                const status = result.status;
+                const isRunning = status.status === 'running';
+
+                // Обновляем индикатор
+                const statusElement = document.querySelector('.bot-status-indicator');
+                const statusTextElement = document.querySelector('.bot-status span');
+
+                if (statusElement) {
+                    if (isRunning) {
+                        statusElement.className = 'bot-status-indicator status-online';
+                        statusElement.innerHTML = '<i class="fas fa-circle"></i> Бот запущен';
+                    } else {
+                        statusElement.className = 'bot-status-indicator status-offline';
+                        statusElement.innerHTML = '<i class="fas fa-circle"></i> Бот остановлен';
+                    }
+                }
+
+                if (statusTextElement) {
+                    statusTextElement.textContent = `Бот: ${status.status || 'неизвестно'}`;
+                }
+
+                return isRunning;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error updating bot status:', error);
+            return false;
+        }
+    }
+
+    // Получение количества пользователей в сегменте
+    async function getSegmentUserCount(segment) {
+        try {
+            const response = await fetch('/broadcast/user_stats');
+            const result = await response.json();
+
+            if (result.success) {
+                const stats = result.stats;
+
+                switch(segment) {
+                    case 'all':
+                        return stats.total_users || 0;
+                    case 'active':
+                    case 'with_orders':
+                        return stats.users_with_orders || 0;
+                    case 'no_orders':
+                        return stats.users_without_orders || 0;
+                    case 'recent':
+                        return stats.new_users_last_week || 0;
+                    default:
+                        return stats.total_users || 0;
+                }
+            }
+            return 0;
+        } catch (error) {
+            console.error('Error getting segment count:', error);
+            // Возвращаем общее количество пользователей как fallback
+            return document.getElementById('total-users').textContent || 0;
+        }
+    }
+
+    // Обновление прогресса
+    function updateProgress(success, total) {
+        const percent = total > 0 ? Math.round((success / total) * 100) : 0;
+
+        document.getElementById('progress-fill').style.width = `${percent}%`;
+        document.getElementById('progress-text').textContent = `${success}/${total}`;
+        document.getElementById('progress-percent').textContent = `${percent}%`;
+    }
+
+    // Загрузка статистики
+    async function loadStats() {
+        try {
+            const response = await fetch('/broadcast/user_stats');
+            const result = await response.json();
+
+            if (result.success) {
+                const stats = result.stats;
+
+                // Обновляем общее количество пользователей
+                const totalUsersElement = document.getElementById('total-users');
+                const totalUsersTextElement = document.getElementById('total-users-text');
+
+                if (totalUsersElement) {
+                    totalUsersElement.textContent = stats.total_users || 0;
+                }
+                if (totalUsersTextElement) {
+                    totalUsersTextElement.textContent = `Всего пользователей: ${stats.total_users || 0}`;
+                }
+
+                // Можно обновить активных пользователей
+                const activeElement = document.getElementById('active-users');
+                if (activeElement) {
+                    activeElement.textContent = stats.users_with_orders || 0;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+
+    // Загрузка истории рассылок
+    async function loadHistory() {
+        try {
+            const historyTable = document.getElementById('history-table');
+            historyTable.innerHTML = '<div class="loading-history">Загрузка истории...</div>';
+
+            const response = await fetch('/broadcast/history');
+            const result = await response.json();
+
+            if (result.success && result.broadcasts && result.broadcasts.length > 0) {
+                let tableHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Тип</th>
+                                <th>Сообщение</th>
+                                <th>Пользователи</th>
+                                <th>Успешно</th>
+                                <th>% успеха</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                result.broadcasts.forEach(bc => {
+                    const shortContent = bc.content ?
+                        (bc.content.length > 50 ? bc.content.substring(0, 50) + '...' : bc.content) :
+                        'Без текста';
+
+                    const typeIcon = bc.type === 'text' ? 'fa-font' :
+                                   bc.type === 'photo' ? 'fa-image' : 'fa-file';
+
+                    tableHTML += `
+                        <tr>
+                            <td>${bc.sent_at || 'Неизвестно'}</td>
+                            <td><i class="fas ${typeIcon}"></i> ${bc.type || 'text'}</td>
+                            <td>${shortContent}</td>
+                            <td>${bc.total_users || 0}</td>
+                            <td>${bc.success_count || 0}</td>
+                            <td>
+                                <div class="success-rate">
+                                    <div class="rate-bar" style="width: ${bc.success_rate || 0}%"></div>
+                                    <span>${bc.success_rate || 0}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                        </tbody>
+                    </table>
+                `;
+
+                historyTable.innerHTML = tableHTML;
+            } else {
+                historyTable.innerHTML = '<div class="no-history">История рассылок пуста</div>';
+            }
+        } catch (error) {
+            console.error('Error loading history:', error);
+            document.getElementById('history-table').innerHTML =
+                '<div class="error-history">Ошибка загрузки истории</div>';
+        }
+    }
+
+    // Обновление истории
+    function refreshHistory() {
+        loadHistory();
+        showNotification('История обновлена', 'success');
+    }
+
+    // Показ уведомлений
+    function showNotification(message, type = 'info') {
+        const container = document.getElementById('notification-container');
+
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.innerHTML = `
+            <div class="notification-content">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'times-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                <span>${message}</span>
+            </div>
+            <button class="notification-close" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+
+        container.appendChild(notification);
+
+        // Автоматическое удаление через 5 секунд
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    // Инициализация
+    updateCharCount();
+    </script>
+
+</body>
+</html>
